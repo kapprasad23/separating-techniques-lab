@@ -1,0 +1,2767 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chapter 11: Separating Techniques — Interactive Visual Scrubber Lab</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: #090d16;
+      color: #f1f5f9;
+      overflow-x: hidden;
+    }
+    /* Custom Scrubber Range Styling */
+    input[type="range"].scrubber-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 12px;
+      border-radius: 999px;
+      background: #1e293b;
+      outline: none;
+      cursor: pointer;
+      transition: box-shadow 0.2s ease;
+    }
+    input[type="range"].scrubber-slider:hover {
+      box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.15);
+    }
+    input[type="range"].scrubber-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: #38bdf8;
+      border: 3px solid #ffffff;
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.85);
+      cursor: grab;
+      transition: transform 0.15s ease, background-color 0.15s ease;
+    }
+    input[type="range"].scrubber-slider::-webkit-slider-thumb:active {
+      cursor: grabbing;
+      transform: scale(1.15);
+      background: #0ea5e9;
+    }
+    input[type="range"].scrubber-slider::-moz-range-thumb {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: #38bdf8;
+      border: 3px solid #ffffff;
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.85);
+      cursor: grab;
+    }
+    .glass-card {
+      background: rgba(15, 23, 42, 0.78);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+    }
+    .hotspot-pill {
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .hotspot-pill:hover {
+      transform: translateY(-2px) scale(1.03);
+    }
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      70% { transform: scale(1.35); opacity: 0; }
+      100% { transform: scale(1.35); opacity: 0; }
+    }
+    .pulse-dot::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 9999px;
+      border: 2px solid currentColor;
+      animation: pulse-ring 1.8s infinite;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-sky-500 selection:text-white">
+
+  <!-- Top Header & Navigation -->
+  <header class="sticky top-0 z-30 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 via-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/20 font-bold text-lg text-white">
+          11
+        </div>
+        <div>
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-semibold uppercase tracking-wider text-sky-400">Exploring Science • Chapter 11</span>
+            <span class="hidden sm:inline-block text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">Pages 117–122</span>
+            <span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/40">👤 Prasad k</span>
+          </div>
+          <div class="flex flex-wrap items-baseline gap-2">
+            <h1 class="text-base sm:text-lg font-bold text-white tracking-tight">Separating Techniques — Interactive Motion Lab</h1>
+            <span class="text-xs sm:text-sm font-semibold text-sky-400">• Prasad k</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Mode Tabs -->
+      <nav class="flex items-center gap-1.5 bg-slate-900/90 p-1 rounded-xl border border-slate-800 overflow-x-auto max-w-full" aria-label="Main Sections">
+        <button id="navTabLab" type="button" class="nav-tab-btn px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all bg-sky-500 text-slate-950 shadow-sm whitespace-nowrap" data-tab="lab">
+          🔬 Scrubber Motion Lab
+        </button>
+        <button id="navTabMixtures" type="button" class="nav-tab-btn px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all text-slate-300 hover:text-white hover:bg-slate-800/60 whitespace-nowrap" data-tab="mixtures">
+          🧪 Mixture Solver (11.1)
+        </button>
+        <button id="navTabWorld" type="button" class="nav-tab-btn px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all text-slate-300 hover:text-white hover:bg-slate-800/60 whitespace-nowrap" data-tab="world">
+          🌍 Real-World & Pioneers (11.2)
+        </button>
+        <button id="navTabQuiz" type="button" class="nav-tab-btn px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all text-slate-300 hover:text-white hover:bg-slate-800/60 whitespace-nowrap" data-tab="quiz">
+          ✅ Chapter Quiz (11.3)
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-5 space-y-6">
+
+    <!-- ==================== TAB 1: INTERACTIVE SCRUBBER LAB ==================== -->
+    <section id="sectionLab" class="space-y-5">
+      <!-- Technique Selector Bar -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+        <button type="button" id="techBtn_evaporation" data-tech="evaporation" class="tech-select-btn group relative text-left p-3.5 rounded-2xl border transition-all bg-slate-900/90 border-sky-500/80 shadow-lg shadow-sky-500/10">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[11px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 font-semibold">11.1 • Page 117</span>
+            <span class="text-lg">🔥</span>
+          </div>
+          <div class="font-bold text-sm sm:text-base text-white group-hover:text-sky-300 transition-colors">1. Evaporation</div>
+          <p class="text-xs text-slate-400 mt-0.5 line-clamp-1">Soluble solid (salt) from liquid (water)</p>
+        </button>
+
+        <button type="button" id="techBtn_crystallisation" data-tech="crystallisation" class="tech-select-btn group relative text-left p-3.5 rounded-2xl border transition-all bg-slate-900/50 border-slate-800 hover:border-slate-700">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[11px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-300 font-semibold">11.1 • Page 118</span>
+            <span class="text-lg">💎</span>
+          </div>
+          <div class="font-bold text-sm sm:text-base text-white group-hover:text-cyan-300 transition-colors">2. Crystallisation</div>
+          <p class="text-xs text-slate-400 mt-0.5 line-clamp-1">Pure crystals from cooled saturated solution</p>
+        </button>
+
+        <button type="button" id="techBtn_sublimation" data-tech="sublimation" class="tech-select-btn group relative text-left p-3.5 rounded-2xl border transition-all bg-slate-900/50 border-slate-800 hover:border-slate-700">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[11px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-purple-500/15 text-purple-300 font-semibold">11.1 • Page 119</span>
+            <span class="text-lg">☁️</span>
+          </div>
+          <div class="font-bold text-sm sm:text-base text-white group-hover:text-purple-300 transition-colors">3. Sublimation</div>
+          <p class="text-xs text-slate-400 mt-0.5 line-clamp-1">Solid ↔ Gas directly (NH₄Cl + NaCl)</p>
+        </button>
+
+        <button type="button" id="techBtn_distillation" data-tech="distillation" class="tech-select-btn group relative text-left p-3.5 rounded-2xl border transition-all bg-slate-900/50 border-slate-800 hover:border-slate-700">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[11px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 font-semibold">11.1 • Page 120</span>
+            <span class="text-lg">💧</span>
+          </div>
+          <div class="font-bold text-sm sm:text-base text-white group-hover:text-emerald-300 transition-colors">4. Simple Distillation</div>
+          <p class="text-xs text-slate-400 mt-0.5 line-clamp-1">Pure solvent (distillate) via condenser</p>
+        </button>
+      </div>
+
+      <!-- Main Lab Grid: Left = Animated Canvas + Scrubber | Right = Stage Narrative, Apparatus Inspector & Textbook Context -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+
+        <!-- Left 8 Cols: Interactive Visual Stage + Scrubber Dock -->
+        <div class="lg:col-span-8 glass-card rounded-2xl overflow-hidden shadow-2xl">
+          <!-- Top Bar above Canvas: Technique Title + View Toggles + Live Telemetry -->
+          <div class="px-4 sm:px-5 py-3.5 border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-3 bg-slate-900/70">
+            <div>
+              <div class="flex items-center gap-2">
+                <span id="stageBadge" class="text-xs font-mono uppercase px-2.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30 font-semibold">Stage 1 of 4</span>
+                <span id="stageTitleTop" class="text-sm sm:text-base font-bold text-white">Setup & Heating the Solution</span>
+              </div>
+              <p id="stageSubtitleTop" class="text-xs text-slate-400 mt-0.5">Drag the scrubber below or press Play to watch the physical separation unfold.</p>
+            </div>
+
+            <!-- View Mode Toggles -->
+            <div class="flex items-center gap-2">
+              <button type="button" id="toggleParticleBtn" class="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all bg-sky-500/20 border-sky-500/50 text-sky-200 flex items-center gap-1.5">
+                <span>🔍</span>
+                <span id="toggleParticleText">Particle Lens: ON</span>
+              </button>
+              <button type="button" id="toggleLabelsBtn" class="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all bg-slate-800 border-slate-700 text-slate-200 flex items-center gap-1.5">
+                <span>🏷️</span>
+                <span id="toggleLabelsText">Labels: ON</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Interactive Canvas Wrapper -->
+          <div class="relative w-full bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 overflow-hidden" style="height: 430px;">
+            <canvas id="labCanvas" class="w-full h-full block cursor-pointer" title="Click apparatus labels or scrub timeline to inspect key movements"></canvas>
+
+            <!-- Floating Telemetry HUD (Top-Left) -->
+            <div class="absolute top-3 left-3 flex flex-wrap gap-2 pointer-events-none">
+              <div class="bg-slate-950/85 border border-slate-800/90 rounded-xl px-3 py-1.5 backdrop-blur-md">
+                <div class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Temperature</div>
+                <div id="hudTemp" class="text-sm sm:text-base font-mono font-bold text-amber-400">25 °C</div>
+              </div>
+              <div class="bg-slate-950/85 border border-slate-800/90 rounded-xl px-3 py-1.5 backdrop-blur-md">
+                <div class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold" id="hudMetric1Label">Solvent Left</div>
+                <div id="hudMetric1Val" class="text-sm sm:text-base font-mono font-bold text-sky-400">100%</div>
+              </div>
+              <div class="bg-slate-950/85 border border-slate-800/90 rounded-xl px-3 py-1.5 backdrop-blur-md">
+                <div class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold" id="hudMetric2Label">Separated Yield</div>
+                <div id="hudMetric2Val" class="text-sm sm:text-base font-mono font-bold text-emerald-400">0%</div>
+              </div>
+            </div>
+
+            <!-- Interactive Hotspot Pills Overlay (Clickable apparatus callouts) -->
+            <div id="hotspotOverlay" class="absolute inset-0 pointer-events-none"></div>
+          </div>
+
+          <!-- MASTER TIMELINE SCRUBBER DOCK -->
+          <div class="p-4 sm:p-5 bg-slate-900/95 border-t border-slate-800 space-y-3.5">
+            <!-- Scrubber Header & Percentage Readout -->
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-semibold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-sky-400 animate-ping"></span>
+                  Interactive Process Scrubber
+                </span>
+                <span class="hidden sm:inline text-xs text-slate-400">(Drag slider, click milestones, or use ←/→ keys)</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span id="scrubPercentDisplay" class="font-mono text-sm font-bold px-2.5 py-0.5 rounded-md bg-slate-800 text-sky-300 border border-slate-700">0%</span>
+              </div>
+            </div>
+
+            <!-- Slider Track -->
+            <div class="relative pt-1">
+              <input
+                id="scrubberInput"
+                type="range"
+                min="0"
+                max="100"
+                step="0.5"
+                value="15"
+                aria-label="Process timeline scrubber from 0 to 100 percent"
+                class="scrubber-slider"
+              />
+              <!-- 4 Clickable Stage Milestone Markers underneath slider -->
+              <div id="milestoneBar" class="grid grid-cols-4 gap-1.5 mt-2.5">
+                <!-- Populated dynamically by JS -->
+              </div>
+            </div>
+
+            <!-- Transport Controls Bar (Play/Pause, Step Back/Forward, Reset, Speed) -->
+            <div class="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-slate-800/80">
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  id="playPauseBtn"
+                  class="px-4 py-2 rounded-xl font-bold text-xs sm:text-sm bg-sky-500 hover:bg-sky-400 text-slate-950 shadow-lg shadow-sky-500/20 transition-all flex items-center gap-2"
+                >
+                  <span id="playPauseIcon">▶</span>
+                  <span id="playPauseLabel">Play Animation</span>
+                </button>
+                <button
+                  type="button"
+                  id="stepBackBtn"
+                  class="px-2.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all"
+                  title="Step backward 10%"
+                >
+                  ⏪ -10%
+                </button>
+                <button
+                  type="button"
+                  id="stepFwdBtn"
+                  class="px-2.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all"
+                  title="Step forward 10%"
+                >
+                  +10% ⏩
+                </button>
+                <button
+                  type="button"
+                  id="resetScrubBtn"
+                  class="px-2.5 py-2 rounded-xl text-xs font-semibold bg-slate-800/70 hover:bg-slate-700 text-slate-300 border border-slate-700/80 transition-all"
+                  title="Reset to 0%"
+                >
+                  ↺ Reset
+                </button>
+              </div>
+
+              <!-- Speed Selector -->
+              <div class="flex items-center gap-1.5 bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800">
+                <span class="text-[11px] text-slate-400 font-medium mr-1">Speed:</span>
+                <button type="button" data-speed="0.5" class="speed-btn px-2 py-0.5 rounded text-xs font-mono text-slate-400 hover:text-white">0.5x</button>
+                <button type="button" data-speed="1" class="speed-btn px-2 py-0.5 rounded text-xs font-mono bg-sky-500/20 text-sky-300 font-bold">1x</button>
+                <button type="button" data-speed="2" class="speed-btn px-2 py-0.5 rounded text-xs font-mono text-slate-400 hover:text-white">2x</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right 4 Cols: Live Stage Breakdown + Apparatus Inspector + Textbook Key Concept -->
+        <div class="lg:col-span-4 space-y-4">
+
+          <!-- What's Happening Right Now Card -->
+          <div class="glass-card rounded-2xl p-4 sm:p-5 space-y-3 border-l-4 border-l-sky-400">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold uppercase tracking-wider text-sky-400">What's Happening Now</span>
+              <span id="rightPageRef" class="text-[11px] font-mono text-slate-400">Textbook p. 117</span>
+            </div>
+            <h2 id="rightStageTitle" class="text-base sm:text-lg font-bold text-white">Stage 1: Heating the Saltwater Solution</h2>
+            <p id="rightStageDesc" class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              The saltwater solution (soluble salt dissolved in liquid water) is placed in an open evaporating basin resting on wire gauze over a Bunsen burner.
+            </p>
+            <div class="pt-2 border-t border-slate-800/80">
+              <div class="text-[11px] font-semibold uppercase tracking-wider text-amber-300 mb-1">🔬 Particle-Level Movement</div>
+              <p id="rightParticleDesc" class="text-xs text-slate-300 leading-relaxed">
+                Water molecules (H₂O) absorb thermal energy and move faster, while dissolved sodium (Na⁺) and chloride (Cl⁻) ions remain dispersed throughout the liquid.
+              </p>
+            </div>
+          </div>
+
+          <!-- Interactive Apparatus & Why-It-Works Inspector -->
+          <div class="glass-card rounded-2xl p-4 sm:p-5 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">Apparatus & Design Inspector</span>
+              <span class="text-[11px] text-slate-400">Click any part below</span>
+            </div>
+            <!-- Part Buttons -->
+            <div id="partSelectorList" class="flex flex-wrap gap-1.5">
+              <!-- Populated dynamically -->
+            </div>
+            <!-- Selected Part Detail Box -->
+            <div id="partDetailCard" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span id="partDetailTitle" class="text-sm font-bold text-emerald-300">Evaporating Basin</span>
+                <span id="partDetailTag" class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300">Wide Surface Area</span>
+              </div>
+              <p id="partDetailText" class="text-xs text-slate-300 leading-relaxed">
+                A shallow, wide open porcelain dish that exposes a large surface area of the solution to the air, allowing water vapour to escape rapidly during heating.
+              </p>
+            </div>
+          </div>
+
+          <!-- Real-World Application / "Did You Know?" Card from Textbook -->
+          <div class="glass-card rounded-2xl p-4 sm:p-5 space-y-2.5 bg-gradient-to-br from-slate-900/90 to-indigo-950/40">
+            <div class="flex items-center gap-2">
+              <span id="realWorldIcon" class="text-lg">🌊</span>
+              <span id="realWorldBadge" class="text-xs font-bold uppercase tracking-wider text-indigo-300">Real-World Connection</span>
+            </div>
+            <h3 id="realWorldTitle" class="text-sm sm:text-base font-bold text-white">Harvesting Sea Salt by Solar Evaporation</h3>
+            <p id="realWorldBody" class="text-xs text-slate-300 leading-relaxed">
+              Sea water is trapped in shallow coastal salt pans. Heat from the sun and wind naturally evaporate the water over days, leaving behind mounds of sea salt ready for collection and purification.
+            </p>
+            <div id="textbookQuestionBox" class="mt-2 pt-2.5 border-t border-slate-800/80">
+              <div class="text-[11px] font-semibold text-sky-300 mb-1">💡 Textbook Check (Click to reveal answer):</div>
+              <button type="button" id="revealQuickQBtn" class="w-full text-left p-2.5 rounded-xl bg-slate-950/70 hover:bg-slate-950 border border-slate-800 transition-all">
+                <div id="quickQQuestion" class="text-xs font-semibold text-white">Q: Which condition is more favourable to dry wet clothes: a hot sunny day or a cloudy day?</div>
+                <div id="quickQAnswer" class="hidden text-xs text-emerald-300 mt-1.5 pt-1.5 border-t border-slate-800/80">
+                  ✓ Answer: A hot sunny day! Higher temperature gives water molecules more kinetic energy to evaporate faster into the air.
+                </div>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Quick Technique Comparison Matrix (Bottom of Tab 1) -->
+      <div class="glass-card rounded-2xl p-4 sm:p-5">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div>
+            <h3 class="text-sm sm:text-base font-bold text-white">Chapter 11 Summary Matrix — Comparing All 4 Separation Techniques</h3>
+            <p class="text-xs text-slate-400">Click any row to load that technique directly into the interactive scrubber above.</p>
+          </div>
+          <span class="text-xs font-mono text-slate-400">Pages 117–120 Summary</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs sm:text-sm">
+            <thead>
+              <tr class="border-b border-slate-800 text-slate-400 uppercase text-[11px] tracking-wider">
+                <th class="py-2.5 px-3">Technique</th>
+                <th class="py-2.5 px-3">Mixture Type</th>
+                <th class="py-2.5 px-3">What is Recovered?</th>
+                <th class="py-2.5 px-3">Key Physical Mechanism</th>
+                <th class="py-2.5 px-3">Textbook Example</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/70">
+              <tr data-jump-tech="evaporation" class="comparison-row cursor-pointer hover:bg-sky-500/10 transition-colors">
+                <td class="py-2.5 px-3 font-bold text-sky-400">🔥 Evaporation</td>
+                <td class="py-2.5 px-3 text-slate-300">Soluble solid in liquid</td>
+                <td class="py-2.5 px-3 text-slate-200">Heat-stable solid solute (solvent lost)</td>
+                <td class="py-2.5 px-3 text-slate-300">Heat to boiling point until all liquid evaporates</td>
+                <td class="py-2.5 px-3 text-slate-300">Salt from saltwater / seawater pans</td>
+              </tr>
+              <tr data-jump-tech="crystallisation" class="comparison-row cursor-pointer hover:bg-cyan-500/10 transition-colors">
+                <td class="py-2.5 px-3 font-bold text-cyan-400">💎 Crystallisation</td>
+                <td class="py-2.5 px-3 text-slate-300">Dissolved solid in solvent</td>
+                <td class="py-2.5 px-3 text-slate-200">Pure crystalline solid (impurities stay in liquid)</td>
+                <td class="py-2.5 px-3 text-slate-300">Heat in open vessel to saturate → cool to grow crystals</td>
+                <td class="py-2.5 px-3 text-slate-300">Rock candy (sugar crystals), purifying seawater/fats</td>
+              </tr>
+              <tr data-jump-tech="sublimation" class="comparison-row cursor-pointer hover:bg-purple-500/10 transition-colors">
+                <td class="py-2.5 px-3 font-bold text-purple-400">☁️ Sublimation</td>
+                <td class="py-2.5 px-3 text-slate-300">Solid + solid (one sublimes)</td>
+                <td class="py-2.5 px-3 text-slate-200">Subliming solid on funnel wall + non-subliming solid in dish</td>
+                <td class="py-2.5 px-3 text-slate-300">Solid → Gas directly (no liquid state) → Solid on cooling</td>
+                <td class="py-2.5 px-3 text-slate-300">Ammonium chloride + NaCl; camphor; naphthalene</td>
+              </tr>
+              <tr data-jump-tech="distillation" class="comparison-row cursor-pointer hover:bg-emerald-500/10 transition-colors">
+                <td class="py-2.5 px-3 font-bold text-emerald-400">💧 Distillation</td>
+                <td class="py-2.5 px-3 text-slate-300">Solvent in solution (different boiling points)</td>
+                <td class="py-2.5 px-3 text-slate-200">Pure liquid solvent (distillate) + solute stays in flask</td>
+                <td class="py-2.5 px-3 text-slate-300">Heating (evaporation) followed by cooling (condensation)</td>
+                <td class="py-2.5 px-3 text-slate-300">Pure water from saltwater; gasoline, kerosene, paraffin</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: MIXTURE SOLVER & ACTIVITY 11.1 ==================== -->
+    <section id="sectionMixtures" class="hidden space-y-6">
+      <div class="glass-card rounded-2xl p-5 sm:p-6">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-5">
+          <div>
+            <span class="text-xs font-mono uppercase tracking-wider px-2.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold">Activity 11.1 • Page 118</span>
+            <h2 class="text-lg sm:text-xl font-bold text-white mt-1">Interactive Lab Challenge: Separating Water, Salt & Sand</h2>
+            <p class="text-xs sm:text-sm text-slate-300 mt-0.5">
+              "You are given a mixture of water, salt and sand. Make a plan to separate the three. Mention the safety precautions that you will take during the procedure."
+            </p>
+          </div>
+          <button type="button" id="resetMixturePlanBtn" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">
+            ↺ Reset Lab Bench
+          </button>
+        </div>
+
+        <!-- 3-Step Interactive Workflow -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          <div class="lg:col-span-7 space-y-4">
+            <div class="text-xs font-semibold uppercase tracking-wider text-sky-400">Execute the Separation Sequence in Order:</div>
+
+            <!-- Step 1 Card -->
+            <div id="mixStep1Card" class="p-4 rounded-2xl border border-sky-500/60 bg-slate-900/90 space-y-2 transition-all">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-mono font-bold text-sky-400">STEP 1 • INSOLUBLE SOLID</span>
+                <span id="mixStep1Status" class="text-xs px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 font-semibold">Ready</span>
+              </div>
+              <h3 class="text-sm sm:text-base font-bold text-white">Separate Sand from the Saltwater Mixture</h3>
+              <p class="text-xs text-slate-300">Sand is insoluble in water, whereas salt dissolves completely in water. Choose the correct method to remove the sand first:</p>
+              <div class="flex flex-wrap gap-2 pt-1">
+                <button type="button" data-step="1" data-choice="filter" class="mix-action-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 transition-all">
+                  ✓ Stir & Filter through Filter Paper (Filtration)
+                </button>
+                <button type="button" data-step="1" data-choice="boil" class="mix-action-btn px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all">
+                  Boil Immediately (Leaves Salt + Sand mixed!)
+                </button>
+              </div>
+              <p id="mixStep1Feedback" class="text-xs text-emerald-300 hidden pt-1"></p>
+            </div>
+
+            <!-- Step 2 Card -->
+            <div id="mixStep2Card" class="p-4 rounded-2xl border border-slate-800 bg-slate-900/40 opacity-60 space-y-2 transition-all">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-mono font-bold text-emerald-400">STEP 2 • RECOVER PURE WATER (SOLVENT)</span>
+                <span id="mixStep2Status" class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-semibold">Locked</span>
+              </div>
+              <h3 class="text-sm sm:text-base font-bold text-white">Recover Pure Water from the Clear Saltwater Filtrate</h3>
+              <p class="text-xs text-slate-300">Now you have clear saltwater solution. Since you need to keep the water as well as the salt, how do you collect pure liquid water?</p>
+              <div class="flex flex-wrap gap-2 pt-1">
+                <button type="button" data-step="2" data-choice="distill" class="mix-action-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all" disabled>
+                  ✓ Simple Distillation (Condense Water Vapour in Liebig Condenser)
+                </button>
+                <button type="button" data-step="2" data-choice="open_evap" class="mix-action-btn px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all" disabled>
+                  Open Basin Evaporation (Loses Water into the Air!)
+                </button>
+              </div>
+              <p id="mixStep2Feedback" class="text-xs text-emerald-300 hidden pt-1"></p>
+            </div>
+
+            <!-- Step 3 Card -->
+            <div id="mixStep3Card" class="p-4 rounded-2xl border border-slate-800 bg-slate-900/40 opacity-60 space-y-2 transition-all">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-mono font-bold text-cyan-400">STEP 3 • RECOVER PURE SALT CRYSTALS (SOLUTE)</span>
+                <span id="mixStep3Status" class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-semibold">Locked</span>
+              </div>
+              <h3 class="text-sm sm:text-base font-bold text-white">Obtain Pure Dry Salt from the Concentrated Solution</h3>
+              <p class="text-xs text-slate-300">To finish recovering pure dry salt from the remaining concentrated solution:</p>
+              <div class="flex flex-wrap gap-2 pt-1">
+                <button type="button" data-step="3" data-choice="crystallise" class="mix-action-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-cyan-500 hover:bg-cyan-400 text-slate-950 transition-all" disabled>
+                  ✓ Evaporate / Crystallise & Dry the Salt Crystals
+                </button>
+              </div>
+              <p id="mixStep3Feedback" class="text-xs text-emerald-300 hidden pt-1"></p>
+            </div>
+          </div>
+
+          <!-- Visual Beaker / Separation Status Panel -->
+          <div class="lg:col-span-5 glass-card rounded-2xl p-5 bg-slate-950/90 border border-slate-800 space-y-4">
+            <div class="text-xs font-bold uppercase tracking-wider text-slate-400">Live Mixture Inventory</div>
+            <div class="grid grid-cols-3 gap-2.5 text-center">
+              <div id="invSandBox" class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+                <div class="text-2xl mb-1">🏖️</div>
+                <div class="text-xs font-bold text-amber-300">Sand</div>
+                <div id="invSandState" class="text-[11px] text-slate-400 mt-0.5">Mixed in beaker</div>
+              </div>
+              <div id="invWaterBox" class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+                <div class="text-2xl mb-1">💧</div>
+                <div class="text-xs font-bold text-sky-300">Water</div>
+                <div id="invWaterState" class="text-[11px] text-slate-400 mt-0.5">Mixed with salt</div>
+              </div>
+              <div id="invSaltBox" class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+                <div class="text-2xl mb-1">🧂</div>
+                <div class="text-xs font-bold text-cyan-300">Salt (NaCl)</div>
+                <div id="invSaltState" class="text-[11px] text-slate-400 mt-0.5">Dissolved solute</div>
+              </div>
+            </div>
+
+            <!-- Mandatory Safety Precautions Checklist (Activity 11.1 requirement) -->
+            <div class="pt-3 border-t border-slate-800 space-y-2">
+              <div class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                <span>🥽</span> Lab Safety Precautions (Activity 11.1)
+              </div>
+              <ul class="text-xs text-slate-300 space-y-1.5">
+                <li class="flex items-start gap-2">
+                  <span class="text-emerald-400 font-bold">✓</span>
+                  <span><strong>Wear safety goggles and lab coat</strong> to protect eyes from spitting hot salt crystals as evaporation nears dryness.</span>
+                </li>
+                <li class="flex items-start gap-2">
+                  <span class="text-emerald-400 font-bold">✓</span>
+                  <span><strong>Use heat-resistant tongs / gloves</strong> and allow the evaporating basin, tripod, and gauze to cool completely before touching.</span>
+                </li>
+                <li class="flex items-start gap-2">
+                  <span class="text-emerald-400 font-bold">✓</span>
+                  <span><strong>Do not overfill the distillation flask</strong> (keep $\le \frac{2}{3}$ full) and turn off the Bunsen burner before the flask boils completely dry.</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Think Critically & End of Unit Mixture Classifier (Pages 120, 121, 122 Q8) -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <!-- Think Critically Cards -->
+        <div class="glass-card rounded-2xl p-5 space-y-4">
+          <span class="text-xs font-mono uppercase tracking-wider px-2.5 py-0.5 rounded bg-purple-500/20 text-purple-300 font-semibold">Think Critically • Pages 120 & 121</span>
+          <h3 class="text-base sm:text-lg font-bold text-white">Critical Thinking Scenarios</h3>
+
+          <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
+            <div class="text-xs font-bold text-sky-300">Scenario 1 (Page 120): Kerosene + Petrol Mixture</div>
+            <p class="text-xs text-slate-300">"Which separation technique will you suggest to separate a mixture containing kerosene and petrol and why?"</p>
+            <button type="button" id="toggleCrit1Btn" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 transition-all">
+              Show Scientific Solution
+            </button>
+            <div id="crit1Answer" class="hidden text-xs text-emerald-300 pt-2 border-t border-slate-800 leading-relaxed">
+              <strong>Distillation (specifically Fractional Distillation):</strong> Kerosene and petrol are both miscible liquids obtained from crude oil, but they have <strong>different boiling points</strong> (petrol boils at a lower temperature range, roughly 40–120 °C, than kerosene at 150–300 °C). When heated, petrol vaporises first, condenses in the condenser, and is collected separately!
+            </div>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
+            <div class="text-xs font-bold text-amber-300">Scenario 2 (Page 121): Stranded on a Deserted Island</div>
+            <p class="text-xs text-slate-300">"How would you obtain drinking water if you are stranded on a deserted island which has not been having rainfall for some time?"</p>
+            <button type="button" id="toggleCrit2Btn" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 transition-all">
+              Show Survival Distillation Plan
+            </button>
+            <div id="crit2Answer" class="hidden text-xs text-emerald-300 pt-2 border-t border-slate-800 leading-relaxed">
+              <strong>Solar / Improvised Distillation of Seawater:</strong> You cannot drink seawater directly because of its high salt content. By heating seawater (over a fire or in a solar still pit covered with a sheet angled toward a cup), water <strong>evaporates</strong> leaving the salt behind, and the water vapour <strong>condenses</strong> on the cooler cover surface to drip down as pure drinkable water (distillate)!
+            </div>
+          </div>
+        </div>
+
+        <!-- Question 8 Interactive Mixture Matcher (Page 122) -->
+        <div class="glass-card rounded-2xl p-5 space-y-4">
+          <span class="text-xs font-mono uppercase tracking-wider px-2.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold">End of Unit Q8 • Page 122</span>
+          <h3 class="text-base sm:text-lg font-bold text-white">Match the Mixture to Its Best Separation Method</h3>
+          <p class="text-xs text-slate-400">Select the correct technique for each mixture from Question 8 (Page 122):</p>
+
+          <div class="space-y-3" id="q8MatcherContainer">
+            <!-- 8a: Salt and camphor -->
+            <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-white">8a. Salt and camphor</span>
+                <span id="q8aBadge" class="text-[11px] font-mono text-slate-400">Choose method</span>
+              </div>
+              <div class="flex flex-wrap gap-1.5">
+                <button type="button" data-q8="a" data-ans="Sublimation" data-correct="true" class="q8-btn px-2.5 py-1 rounded-lg text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">Sublimation</button>
+                <button type="button" data-q8="a" data-ans="Evaporation" data-correct="false" class="q8-btn px-2.5 py-1 rounded-lg text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">Evaporation</button>
+                <button type="button" data-q8="a" data-ans="Distillation" data-correct="false" class="q8-btn px-2.5 py-1 rounded-lg text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">Distillation</button>
+              </div>
+              <p id="q8aExplain" class="hidden text-xs text-emerald-300"></p>
+            </div>
+
+            <!-- 8b: Water from ink -->
+            <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-white">8b. Water from ink</span>
+                <span id="q8bBadge" class="text-[11px] font-mono text-slate-400">Choose method</span>
+              </div>
+              <div class="flex flex-wrap gap-1.5">
+                <button type="button" data-q8="b" data-ans="Sublimation" data-correct="false" class="q8-btn px-2.5 py-1 rounded-lg text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">Sublimation</button>
+                <button type="button" data-q8="b" data-ans="Distillation" data-correct="true" class="q8-btn px-2.5 py-1 rounded-lg text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">Simple Distillation</button>
+                <button type="button" data-q8="b" data-ans="Crystallisation" data-correct="false" class="q8-btn px-2.5 py-1 rounded-lg text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">Crystallisation</button>
+              </div>
+              <p id="q8bExplain" class="hidden text-xs text-emerald-300"></p>
+            </div>
+
+            <!-- 8c: Pieces of steel from engine oil -->
+            <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-white">8c. Pieces of steel from engine oil</span>
+                <span id="q8cBadge" class="text-[11px] font-mono text-slate-400">Choose method</span>
+              </div>
+              <div class="flex flex-wrap gap-1.5">
+                <button type="button" data-q8="c" data-ans="Magnetic Separation / Filtration" data-correct="true" class="q8-btn px-2.5 py-1 rounded-lg text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">Magnetic Separation / Filtration</button>
+                <button type="button" data-q8="c" data-ans="Evaporation" data-correct="false" class="q8-btn px-2.5 py-1 rounded-lg text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">Evaporation</button>
+                <button type="button" data-q8="c" data-ans="Sublimation" data-correct="false" class="q8-btn px-2.5 py-1 rounded-lg text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">Sublimation</button>
+              </div>
+              <p id="q8cExplain" class="hidden text-xs text-emerald-300"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: IMPORTANCE OF PURIFICATION & PIONEERS (11.2) ==================== -->
+    <section id="sectionWorld" class="hidden space-y-6">
+      <!-- 11.2 Overview Banner -->
+      <div class="glass-card rounded-2xl p-5 sm:p-6 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <span class="text-xs font-mono uppercase tracking-wider px-2.5 py-0.5 rounded bg-sky-500/20 text-sky-300 font-semibold">Section 11.2 • Page 121</span>
+            <h2 class="text-lg sm:text-xl font-bold text-white mt-1">Why Purification Matters in Medicine, Food & Industry</h2>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5">
+            <div class="text-sm font-bold text-cyan-300">💎 Crystallisation in Daily Life</div>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Used in purifying <strong>seawater, sugars, and fats</strong>. It is also used to control crystal size and improve the smooth texture of <strong>ice cream, fudge, and chocolate</strong>, as well as making medicinal <strong>rock candies</strong>.
+            </p>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5">
+            <div class="text-sm font-bold text-emerald-300">💧 Distillation in Industry</div>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Essential for commercial refining of crude oil into <strong>gasoline (petrol), paraffin, and kerosene</strong>, and for producing <strong>distilled water</strong> for laboratories, car batteries, and sterile medical injections.
+            </p>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5">
+            <div class="text-sm font-bold text-purple-300">☁️ Sublimation in Products</div>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              <strong>Solid air fresheners</strong> (including blocks hanging in toilets) and mothballs (naphthalene/camphor) sublime directly into fragrant gas. Also widely used in the <strong>dye-sublimation printing industry</strong>!
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Activity 11.2: Separation Techniques Across 8 Professions (Page 121) -->
+      <div class="glass-card rounded-2xl p-5 sm:p-6 space-y-4">
+        <div>
+          <span class="text-xs font-mono uppercase tracking-wider px-2.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-semibold">Activity 11.2 • Page 121</span>
+          <h3 class="text-base sm:text-lg font-bold text-white mt-1">Interactive Explorer: How 8 Professions Use Separation Techniques</h3>
+          <p class="text-xs text-slate-400">Click any profession from Activity 11.2 to inspect the separation techniques they rely on:</p>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2" id="profGrid">
+          <!-- Populated by JS -->
+        </div>
+
+        <div id="profDetailBox" class="p-4 rounded-xl bg-slate-900/95 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div class="space-y-1">
+            <div class="flex items-center gap-2">
+              <span id="profDetailEmoji" class="text-2xl">🧪</span>
+              <h4 id="profDetailName" class="text-base font-bold text-white">Chemists</h4>
+              <span id="profDetailTechTag" class="text-xs font-mono px-2.5 py-0.5 rounded bg-sky-500/20 text-sky-300 font-semibold">Distillation • Crystallisation • Sublimation</span>
+            </div>
+            <p id="profDetailDesc" class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              Synthesize and purify chemical compounds using simple/fractional distillation for solvents, recrystallisation for pure crystalline solids, and sublimation for volatile compounds.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Practicing Islam / Historical Pioneers of Purification (Page 122 Q12) -->
+      <div class="glass-card rounded-2xl p-5 sm:p-6 space-y-4 border-l-4 border-l-amber-400">
+        <div>
+          <span class="text-xs font-mono uppercase tracking-wider px-2.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold">Section 11.3 • Question 12 (Page 122)</span>
+          <h3 class="text-base sm:text-lg font-bold text-white mt-1">Contributions of Classical Muslim Chemists to Separation & Purification</h3>
+          <p class="text-xs text-slate-300">
+            Page 122 highlights the pioneering work of <strong>Jabir ibn Hayyan (Geber)</strong>, <strong>Al-Kindi (Alkindus)</strong>, and <strong>Al-Razi (Rhazes)</strong> in developing modern laboratory separation techniques:
+          </p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-bold text-amber-300">Jabir ibn Hayyan (Geber)</span>
+              <span class="text-[11px] font-mono text-slate-400">c. 721–815 CE</span>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Invented the <strong>alembic (al-anbiq)</strong> still for efficient distillation. He systematically documented <strong>crystallisation (taballur)</strong>, <strong>sublimation (tas'id)</strong>, <strong>evaporation (tabkhir)</strong>, and filtration to purify acids, salts, and metals.
+            </p>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-bold text-sky-300">Al-Kindi (Alkindus)</span>
+              <span class="text-[11px] font-mono text-slate-400">c. 801–873 CE</span>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Authored the <em>Book of the Chemistry of Perfume and Distillations</em> containing over 100 recipes for extracting pure essential oils, rosewater, and camphor using controlled hydro-distillation and sublimation.
+            </p>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-bold text-emerald-300">Al-Razi (Rasis / Rhazes)</span>
+              <span class="text-[11px] font-mono text-slate-400">c. 854–925 CE</span>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              In <em>Kitab al-Asrar (Book of Secrets)</em>, he classified laboratory apparatus (alembics, cucurbits, water baths, funnels, filters) and used distillation to purify alcohol (ethanol) and kerosene as well as sublimation for medicinal compounds.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: CHAPTER 11 QUIZ & SELF-CHECK (11.3) ==================== -->
+    <section id="sectionQuiz" class="hidden space-y-6">
+      <div class="glass-card rounded-2xl p-5 sm:p-6 space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-mono uppercase tracking-wider px-2.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold">Section 11.3 • Pages 118–122</span>
+            <h2 class="text-lg sm:text-xl font-bold text-white mt-1">Chapter 11 End-of-Unit Interactive Quiz</h2>
+            <p class="text-xs text-slate-400">Test your mastery of all in-chapter and End-of-Unit questions from the PDF.</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs font-mono">
+              Score: <span id="quizScoreText" class="font-bold text-sky-400">0 / 8</span>
+            </div>
+            <button type="button" id="resetQuizBtn" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">
+              ↺ Reset Quiz
+            </button>
+          </div>
+        </div>
+
+        <div id="quizContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Populated dynamically by JS -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-900 bg-slate-950/80 py-3 px-4 sm:px-6 text-center text-xs text-slate-500">
+    Interactive Visual Scrubber Web App • Grounded in <em>Exploring Science — Chapter 11: Separating Techniques</em> (Pages 117–122)
+  </footer>
+
+  <!-- ==================== COMPLETE APPLICATION LOGIC ==================== -->
+  <script>
+    // ============================================================================
+    // 1. STRUCTURED DATA FOR ALL 4 SEPARATING TECHNIQUES (Pages 117-120)
+    // ============================================================================
+    const TECHNIQUES = {
+      evaporation: {
+        id: 'evaporation',
+        name: 'Evaporation',
+        pageRef: 'Page 117',
+        metric1Label: 'Liquid Water Left',
+        metric2Label: 'Solid Salt Layer',
+        realWorldIcon: '🌊',
+        realWorldBadge: 'Real-World Application • Page 117',
+        realWorldTitle: 'Processing Sea Salt by Evaporating Sea Water',
+        realWorldBody: 'In coastal salt pans, seawater is channeled into wide shallow ponds. Heat from sunlight evaporates the water solvent into the atmosphere, leaving white mounds of solid salt behind.',
+        quickQ: {
+          q: 'Q (Page 118): Which condition is considered favourable to dry wet clothes: a hot sunny day or a cloudy day?',
+          a: '✓ A hot sunny day! Higher heat increases the rate of evaporation of water from the wet fabric.'
+        },
+        milestones: [
+          { pct: 10, label: '1. Heat Solution', range: [0, 25] },
+          { pct: 42, label: '2. Boiling Point', range: [25, 60] },
+          { pct: 72, label: '3. Water Escapes', range: [60, 85] },
+          { pct: 95, label: '4. Dry Salt Layer', range: [85, 100] }
+        ],
+        stages: [
+          {
+            range: [0, 25],
+            badge: 'Stage 1 of 4 • Heating (0–25%)',
+            title: 'Heating the Saltwater Solution',
+            subtitle: 'Saltwater solution in the evaporating basin is heated over a Bunsen burner.',
+            desc: 'Evaporation separates a soluble solid (salt) from a liquid (water). The saltwater solution is placed in a wide evaporating basin resting on wire gauze above a Bunsen burner.',
+            particleDesc: 'Dissolved sodium (Na⁺) and chloride (Cl⁻) ions move randomly among liquid water (H₂O) molecules as thermal energy rises toward 100 °C.'
+          },
+          {
+            range: [25, 60],
+            badge: 'Stage 2 of 4 • Boiling Point (25–60%)',
+            title: 'Boiling & Vigorous Vapour Formation',
+            subtitle: 'The solution reaches boiling point; water turns into rising vapour.',
+            desc: 'To get the salt back from the saltwater solution, the solution is heated to its boiling point. Bubbles form throughout the liquid and water molecules escape rapidly from the surface as vapour.',
+            particleDesc: 'Fast-moving H₂O molecules overcome intermolecular attractions and escape upward into the air as gas, while heavy Na⁺ and Cl⁻ ions cannot evaporate.'
+          },
+          {
+            range: [60, 85],
+            badge: 'Stage 3 of 4 • Solvent Depletion (60–85%)',
+            title: 'Liquid Level Drops & Salt Precipitates',
+            subtitle: 'Most of the solvent has evaporated; white salt starts coating the bottom.',
+            desc: 'As boiling continues, the volume of liquid water shrinks dramatically. Because there is no longer enough water to keep the salt dissolved, solid white salt begins accumulating at the bottom.',
+            particleDesc: 'As H₂O molecules depart into the air, Na⁺ and Cl⁻ ions crowd closely together and lock into a solid ionic lattice along the floor of the basin.'
+          },
+          {
+            range: [85, 100],
+            badge: 'Stage 4 of 4 • Complete Separation (85–100%)',
+            title: 'Solvent Evaporated — Pure Salt Left Behind',
+            subtitle: 'All water has evaporated into the air, leaving a dry layer of salt.',
+            desc: 'The solvent is completely evaporated, leaving behind a white layer of solid solute (salt) at the bottom of the evaporating basin.',
+            particleDesc: 'Only ordered solid salt (NaCl) particles remain in the dish; all water solvent molecules have escaped as vapour.'
+          }
+        ],
+        parts: [
+          {
+            id: 'vapour',
+            name: 'Vapour',
+            tag: 'Escaping Solvent',
+            xPct: 54, yPct: 16,
+            text: 'Gaseous water molecules escaping from the boiling saltwater surface into the surrounding air.'
+          },
+          {
+            id: 'basin',
+            name: 'Evaporating Basin',
+            tag: 'Open Porcelain Dish',
+            xPct: 26, yPct: 38,
+            text: 'Wide, shallow heat-resistant dish that maximizes the exposed surface area so the liquid solvent evaporates quickly.'
+          },
+          {
+            id: 'solution',
+            name: 'Solution / Salt Layer',
+            tag: 'Solute + Solvent',
+            xPct: 70, yPct: 39,
+            text: 'Starts as an aqueous saltwater mixture; as water evaporates, a layer of solid salt remains at the bottom.'
+          },
+          {
+            id: 'gauze',
+            name: 'Wire Gauze',
+            tag: 'Even Heat Spread',
+            xPct: 26, yPct: 55,
+            text: 'Metallic mesh sitting on the tripod stand that supports the evaporating basin and distributes flame heat evenly.'
+          },
+          {
+            id: 'heat',
+            name: 'Heat (Bunsen Burner)',
+            tag: 'Thermal Energy Source',
+            xPct: 32, yPct: 74,
+            text: 'Provides thermal energy to raise the solution to its boiling point so the solvent evaporates rapidly.'
+          }
+        ]
+      },
+
+      crystallisation: {
+        id: 'crystallisation',
+        name: 'Crystallisation',
+        pageRef: 'Page 118',
+        metric1Label: 'Solution Saturation',
+        metric2Label: 'Crystal Growth',
+        realWorldIcon: '🍬',
+        realWorldBadge: 'Did You Know? • Page 118 & 121',
+        realWorldTitle: 'Rock Candies, Sugar Crystals & Smooth Chocolate',
+        realWorldBody: 'Before cough syrups were invented, rock candies were used as cough medicine! They are formed by crystallisation—many tiny sugar crystals grown together. Crystallisation also refines seawater, sugars, fats, ice cream, fudge, and chocolate.',
+        quickQ: {
+          q: 'Q (Page 118): Why is the solution heated in an open vessel in the process of crystallisation?',
+          a: '✓ To allow the evaporated solvent (water vapour) to escape freely into the air so the remaining solution becomes saturated and concentrated!'
+        },
+        milestones: [
+          { pct: 12, label: '1. Saturated Solution', range: [0, 25] },
+          { pct: 40, label: '2. Heat Open Vessel', range: [25, 55] },
+          { pct: 70, label: '3. Cool & Nucleate', range: [55, 85] },
+          { pct: 95, label: '4. Collect & Dry', range: [85, 100] }
+        ],
+        stages: [
+          {
+            range: [0, 25],
+            badge: 'Stage 1 of 4 • Saturation (0–25%)',
+            title: 'Preparing a Saturated Solution',
+            subtitle: 'Solute is dissolved in solvent until no more solute can dissolve.',
+            desc: 'When we keep adding a soluble solid (solute) into a solvent, a point comes when no more solute can dissolve at that temperature. This is called a saturated solution.',
+            particleDesc: 'The liquid holds a high concentration of dissolved solute particles alongside water molecules.'
+          },
+          {
+            range: [25, 55],
+            badge: 'Stage 2 of 4 • Concentration (25–55%)',
+            title: 'Step 1 & 2: Heating in an Open Vessel',
+            subtitle: 'The saturated solution is heated gently to evaporate part of the solvent.',
+            desc: '1. The solution is heated in an open vessel (evaporating basin).\n2. Part of the solvent evaporates into the air, leaving behind a hot, super-concentrated solute solution.',
+            particleDesc: 'Heating drives off excess H₂O molecules from the open surface, bringing dissolved solute particles into a supersaturated state.'
+          },
+          {
+            range: [55, 85],
+            badge: 'Stage 3 of 4 • Cooling & Growth (55–85%)',
+            title: 'Step 3: Cooling & Crystal Accumulation',
+            subtitle: 'Burner turns off; as the solution cools, geometric crystals grow!',
+            desc: '3. As the hot saturated solution is allowed to cool, the dissolved solid separates out of the solution and pure crystals start accumulating on the surface and bottom of the basin.',
+            particleDesc: 'As temperature drops, kinetic energy decreases and solute particles arrange themselves into symmetrical, repeating geometric crystal lattices!'
+          },
+          {
+            range: [85, 100],
+            badge: 'Stage 4 of 4 • Harvesting (85–100%)',
+            title: 'Step 4: Collecting & Drying Pure Crystals',
+            subtitle: 'Enlarged pure crystals are separated from remaining liquid and dried.',
+            desc: '4. The pure crystals obtained are collected, filtered from any remaining liquid impurities, and dried on filter paper. Unlike boiling to dryness, crystallisation yields well-formed pure crystals!',
+            particleDesc: 'Solute particles are locked into large, pure geometric crystals while soluble impurities stay behind in the surrounding cool liquid.'
+          }
+        ],
+        parts: [
+          {
+            id: 'open_basin',
+            name: 'Open Evaporating Basin',
+            tag: 'Open Vessel',
+            xPct: 27, yPct: 35,
+            text: 'An open vessel allows water vapour to escape freely during heating and provides a clean surface for cooling.'
+          },
+          {
+            id: 'sat_solution',
+            name: 'Saturated Solution',
+            tag: 'Max Dissolved Solute',
+            xPct: 68, yPct: 34,
+            text: 'A solution in which no more solute can be dissolved at a given temperature. Heating evaporates solvent so crystals form upon cooling.'
+          },
+          {
+            id: 'crystals',
+            name: 'Growing Crystals',
+            tag: 'Geometric Lattice',
+            xPct: 62, yPct: 50,
+            text: 'As the saturated solution cools, pure solid separates out and forms regular geometric crystals on the surface and basin floor.'
+          },
+          {
+            id: 'burner_crys',
+            name: 'Controlled Heat',
+            tag: 'Heated then Cooled',
+            xPct: 32, yPct: 74,
+            text: 'Used during Stage 1–2 to evaporate part of the solvent, then turned OFF in Stage 3–4 so the solution can cool and crystallise.'
+          }
+        ]
+      },
+
+      sublimation: {
+        id: 'sublimation',
+        name: 'Sublimation',
+        pageRef: 'Page 119',
+        metric1Label: 'NH₄Cl Fumes / Solidified',
+        metric2Label: 'Pure NH₄Cl Recovered',
+        realWorldIcon: '🌸',
+        realWorldBadge: 'Real-World Application • Page 119 & 121',
+        realWorldTitle: 'Camphor, Naphthalene, Air Fresheners & Printing',
+        realWorldBody: 'Ammonium chloride, camphor, and naphthalene all sublime directly from solid to gas without melting. Solid toilet air fresheners sublime continuously into the air, and dye-sublimation printing transfers ink directly as a vapour!',
+        quickQ: {
+          q: 'Q (Page 119): Why is the china dish covered by an inverted funnel and plugged with cotton?',
+          a: '✓ The inverted funnel traps the rising white fumes of ammonium chloride and provides a cool inner surface for them to solidify, while the cotton plug stops the fumes from escaping out the top stem!'
+        },
+        milestones: [
+          { pct: 12, label: '1. Solid Mixture', range: [0, 25] },
+          { pct: 45, label: '2. White Fumes Rise', range: [25, 60] },
+          { pct: 75, label: '3. Funnel Deposition', range: [60, 85] },
+          { pct: 95, label: '4. Cool & Transfer', range: [85, 100] }
+        ],
+        stages: [
+          {
+            range: [0, 25],
+            badge: 'Stage 1 of 4 • Apparatus Setup (0–25%)',
+            title: 'Ammonium Chloride + Sodium Chloride in China Dish',
+            subtitle: 'Covered with an inverted glass funnel plugged with cotton at the stem.',
+            desc: 'Sublimation converts a solid directly into a gas without passing through the liquid state. A mixture of ammonium chloride (NH₄Cl, sublimes) and sodium chloride (NaCl, does not sublime) is placed in a china dish under an inverted funnel.',
+            particleDesc: 'Both NH₄Cl (purple/white) and NaCl (amber) exist as mixed solid particles at the bottom of the china dish.'
+          },
+          {
+            range: [25, 60],
+            badge: 'Stage 2 of 4 • Direct Sublimation (25–60%)',
+            title: 'White Fumes of Ammonium Chloride Evolve',
+            subtitle: 'On heating, solid NH₄Cl turns directly into white vapour without melting.',
+            desc: 'When the mixture is heated, ammonium chloride undergoes sublimation—converting directly from solid into dense white fumes that rise inside the inverted funnel. Common salt (NaCl) does not sublime and stays in the china dish.',
+            particleDesc: 'NH₄Cl particles break free directly from solid into fast-moving gas vapour, bypassing the liquid phase completely!'
+          },
+          {
+            range: [60, 85],
+            badge: 'Stage 3 of 4 • Solidification on Funnel (60–85%)',
+            title: 'Vapours Deposit on Cooler Upper Funnel Walls',
+            subtitle: 'Rising fumes hit the cooler glass walls of the funnel and solidify.',
+            desc: 'As the hot white fumes rise toward the narrower upper walls of the inverted funnel (which are further from the burner flame and cooler), they lose heat and convert directly back into solid ammonium chloride sticking to the glass.',
+            particleDesc: 'Gas-phase NH₄Cl molecules strike the cooler glass wall and deposit directly into a pure white solid layer (deposition / reverse sublimation).'
+          },
+          {
+            range: [85, 100],
+            badge: 'Stage 4 of 4 • Recovery (85–100%)',
+            title: 'Cooling & Scraping Pure NH₄Cl to Watch Glass',
+            subtitle: 'Heating stops when fumes cease; pure solid is transferred with a spatula.',
+            desc: 'Heating is stopped when white fumes stop rising, and the funnel is allowed to cool. The inverted funnel is lifted, and the pure solidified ammonium chloride on its inner walls is scraped onto a watch glass with a spatula, leaving NaCl behind in the china dish.',
+            particleDesc: '100% separation achieved: pure NH₄Cl crystals are on the funnel/watch glass, and non-volatile NaCl remains in the china dish.'
+          }
+        ],
+        parts: [
+          {
+            id: 'cotton_plug',
+            name: 'Cotton Plug',
+            tag: 'Prevents Vapour Loss',
+            xPct: 58, yPct: 12,
+            text: 'Placed at the narrow top opening of the funnel stem to prevent white fumes of ammonium chloride from escaping into the room while preventing pressure build-up.'
+          },
+          {
+            id: 'inv_funnel',
+            name: 'Inverted Glass Funnel',
+            tag: 'Cool Condensation Cone',
+            xPct: 64, yPct: 26,
+            text: 'Covers the china dish to capture rising vapours. Its upper walls are cooler than the dish below, causing ammonium chloride vapour to solidify on the inside.'
+          },
+          {
+            id: 'solid_nh4cl',
+            name: 'Solidified NH₄Cl',
+            tag: 'Pure Sublimate',
+            xPct: 67, yPct: 39,
+            text: 'Pure white solid ammonium chloride that deposits on the cooler inner walls of the inverted funnel and is later transferred to a watch glass with a spatula.'
+          },
+          {
+            id: 'vapours_nh4cl',
+            name: 'Vapours of NH₄Cl',
+            tag: 'White Fumes',
+            xPct: 30, yPct: 36,
+            text: 'Dense white fumes evolved when solid ammonium chloride is heated and converts directly into gas without melting.'
+          },
+          {
+            id: 'china_dish',
+            name: 'China Dish + Salt Mixture',
+            tag: 'Heat-Resistant Vessel',
+            xPct: 28, yPct: 53,
+            text: 'Holds the initial mixture of ammonium chloride and sodium chloride (common salt). After heating, only sodium chloride remains at the bottom.'
+          }
+        ]
+      },
+
+      distillation: {
+        id: 'distillation',
+        name: 'Simple Distillation',
+        pageRef: 'Page 120',
+        metric1Label: 'Flask Solution Left',
+        metric2Label: 'Pure Distillate Collected',
+        realWorldIcon: '⛽',
+        realWorldBadge: 'Commercial Refining • Page 120 & 121',
+        realWorldTitle: 'Pure Water, Gasoline, Paraffin & Kerosene',
+        realWorldBody: 'Simple distillation purifies seawater into pure drinking water (distillate). Industrially, distillation separates crude oil into gasoline, paraffin, and kerosene based on their different boiling points.',
+        quickQ: {
+          q: 'Q6 (Page 122): Why is a distillation flask never filled to more than two-thirds of its volume?',
+          a: '✓ If filled above 2/3, vigorous boiling bubbles can splash impure saltwater directly into the side-arm and Liebig condenser, contaminating the pure distillate!'
+        },
+        milestones: [
+          { pct: 12, label: '1. Heat Flask', range: [0, 25] },
+          { pct: 42, label: '2. Boil & Vaporise', range: [25, 55] },
+          { pct: 72, label: '3. Liebig Condenser', range: [55, 85] },
+          { pct: 95, label: '4. Pure Distillate', range: [85, 100] }
+        ],
+        stages: [
+          {
+            range: [0, 25],
+            badge: 'Stage 1 of 4 • Heating Flask (0–25%)',
+            title: 'Step 1: Heating Saltwater in the Distillation Flask',
+            subtitle: 'Water has a lower boiling point (100 °C) than dissolved salt.',
+            desc: 'Distillation separates a pure liquid solvent from a solution by heating and then cooling it. The round-bottom distillation flask (filled ≤ 2/3 full) contains saltwater and is heated over a burner.',
+            particleDesc: 'Water molecules (H₂O) absorb heat faster and approach their 100 °C boiling point, while non-volatile salt ions have a much higher boiling point (1465 °C).'
+          },
+          {
+            range: [25, 55],
+            badge: 'Stage 2 of 4 • Evaporation (25–55%)',
+            title: 'Step 2: Water Boils & Vapour Enters the Side-Arm',
+            subtitle: 'Thermometer reads 100 °C as pure steam rises into the condenser neck.',
+            desc: 'When the solution reaches 100 °C, the water boils and evaporates into pure water vapour. The vapour rises past the thermometer bulb and enters the side-arm leading into the Liebig condenser, leaving all salt behind in the flask.',
+            particleDesc: 'Only pure H₂O gas molecules travel up the neck of the flask; Na⁺ and Cl⁻ ions remain trapped in the boiling liquid below.'
+          },
+          {
+            range: [55, 85],
+            badge: 'Stage 3 of 4 • Condensation (55–85%)',
+            title: 'Step 3: Cooling & Liquefaction in the Liebig Condenser',
+            subtitle: 'Cold water circulating through the outer jacket cools the steam into liquid.',
+            desc: 'The hot water vapour passes down the inner glass tube of the Liebig condenser. Cool water enters at the bottom jacket port ("Cool water in") and exits at the top ("Water out"), cooling and liquefying the vapour back into liquid water.',
+            particleDesc: 'Fast-moving H₂O vapour molecules lose thermal energy to the cold glass wall and condense back into pure liquid water droplets.'
+          },
+          {
+            range: [85, 100],
+            badge: 'Stage 4 of 4 • Collection (85–100%)',
+            title: 'Step 4: Collecting Pure Distillate in the Beaker',
+            subtitle: 'Pure cooled water (the distillate) drips into the receiving flask without any salt.',
+            desc: 'The condensed liquid drips out the end of the condenser into the receiving beaker. This purified liquid is called the distillate—pure water completely free of dissolved salt!',
+            particleDesc: 'The receiving beaker contains 100% pure liquid H₂O molecules (distillate), while the concentrated salt stays isolated in the distillation flask.'
+          }
+        ],
+        parts: [
+          {
+            id: 'thermometer',
+            name: 'Thermometer',
+            tag: 'Monitors Boiling Point',
+            xPct: 33, yPct: 14,
+            text: 'Positioned at the side-arm junction to measure the exact temperature of the rising vapour (100 °C for pure water).'
+          },
+          {
+            id: 'dist_flask',
+            name: 'Distillation Flask + Solution',
+            tag: 'Filled ≤ 2/3 Volume',
+            xPct: 25, yPct: 48,
+            text: 'Round-bottom flask where saltwater is boiled. Kept at or below 2/3 capacity so boiling liquid never splashes into the condenser.'
+          },
+          {
+            id: 'liebig',
+            name: 'Liebig Condenser',
+            tag: 'Double-Walled Cooler',
+            xPct: 55, yPct: 36,
+            text: 'Angled glass tube surrounded by an outer cooling water jacket. Cool water flows in at the bottom and out at the top to cool and liquefy hot vapour.'
+          },
+          {
+            id: 'water_ports',
+            name: 'Cool Water In / Water Out',
+            tag: 'Counter-Current Cooling',
+            xPct: 52, yPct: 60,
+            text: 'Cold water enters the lowest point ("Cool water in") and leaves from the upper port ("Water out") so the entire condenser jacket stays full of cold water.'
+          },
+          {
+            id: 'distillate',
+            name: 'Distillate (Pure Water)',
+            tag: 'Purified Liquid Product',
+            xPct: 79, yPct: 74,
+            text: 'The cooled, liquefied pure liquid collected in the receiving beaker—completely free of dissolved salt or solid impurities.'
+          }
+        ]
+      }
+    };
+
+    // ============================================================================
+    // 2. ACTIVITY 11.2 PROFESSIONS DATA (Page 121)
+    // ============================================================================
+    const PROFESSIONS = [
+      {
+        id: 'chemists',
+        emoji: '🧪',
+        name: 'Chemists',
+        tech: 'Distillation • Crystallisation • Sublimation',
+        desc: 'Use all four techniques daily to synthesize compounds, purify solvents via distillation, grow pure crystals via crystallisation, and isolate volatile solids via sublimation.'
+      },
+      {
+        id: 'pharmacists',
+        emoji: '💊',
+        name: 'Pharmacists',
+        tech: 'Crystallisation • Distillation',
+        desc: 'Prepare and test active drug ingredients for 100% purity before medicines are sold (Page 121), using recrystallisation for pure drug crystals and distilled water for sterile solutions.'
+      },
+      {
+        id: 'chefs',
+        emoji: '👩‍🍳',
+        name: 'Chefs & Food Makers',
+        tech: 'Evaporation • Crystallisation',
+        desc: 'Reduce sauces by evaporation and control sugar/fat crystallisation to create smooth textures in ice cream, fudge, chocolate, and rock candy (Page 118 & 121).'
+      },
+      {
+        id: 'dentists',
+        emoji: '🦷',
+        name: 'Dentists',
+        tech: 'Distillation • Filtration',
+        desc: 'Use pure distilled water in steam autoclaves to sterilize dental instruments without leaving mineral scale deposits, and purify dental polymers and amalgams.'
+      },
+      {
+        id: 'miners',
+        emoji: '⛏️',
+        name: 'Miners',
+        tech: 'Evaporation • Crystallisation • Magnetic/Density Separation',
+        desc: 'Extract valuable mineral salts (like potash, lithium salts, and halite/rock salt) from brine lakes using solar evaporation ponds and fractional crystallisation.'
+      },
+      {
+        id: 'archaeologists',
+        emoji: '🏺',
+        name: 'Archaeologists & Geologists',
+        tech: 'Sieving • Flotation • Crystallisation Analysis',
+        desc: 'Wash and sieve soil matrices to separate ancient seeds, bone fragments, and mineral crystals, and perform desalination (removing salt crystals) to preserve excavated pottery.'
+      },
+      {
+        id: 'doctors',
+        emoji: '🩺',
+        name: 'Doctors',
+        tech: 'Centrifugation • Dialysis • Distilled Water',
+        desc: 'Rely on purified saline drips, sterile distilled water for injections, blood plasma separation, and kidney dialysis to filter waste solutes from patients’ blood.'
+      },
+      {
+        id: 'farmers',
+        emoji: '🌾',
+        name: 'Farmers',
+        tech: 'Evaporation (Drying) • Winnowing • Distillation',
+        desc: 'Use solar evaporation to dry harvested grains for safe storage, winnowing/sieving to separate grain from chaff, and steam distillation to extract essential oils from crops.'
+      }
+    ];
+
+    // ============================================================================
+    // 3. CHAPTER 11 QUIZ DATA (Pages 118-122)
+    // ============================================================================
+    const QUIZ_QUESTIONS = [
+      {
+        id: 'q1',
+        page: 'Page 122 • Q1',
+        question: '1. How do dissolved impurities (like salt) affect the boiling point of a liquid (like water)?',
+        options: [
+          'They increase (raise) the boiling point of the liquid above 100 °C',
+          'They lower the boiling point to 50 °C',
+          'They make the liquid freeze at 100 °C'
+        ],
+        correct: 0,
+        explanation: 'As stated on Page 120 ("water has a lower boiling point than salt water"), dissolved non-volatile impurities raise the boiling point of a liquid.'
+      },
+      {
+        id: 'q2',
+        page: 'Page 122 • Q2 & Q5',
+        question: '2. Which separation technique is based on the difference in boiling points and involves BOTH heating (evaporation) and cooling (condensation)?',
+        options: [
+          'Sublimation',
+          'Simple Distillation',
+          'Evaporation in an open basin'
+        ],
+        correct: 1,
+        explanation: 'Distillation (Page 120) purifies a liquid by heating it to evaporate into vapour and then cooling it in a Liebig condenser to condense into pure distillate.'
+      },
+      {
+        id: 'q3',
+        page: 'Page 118 & 122 • Q4',
+        question: '3. How is crystallisation different from simple evaporation to dryness?',
+        options: [
+          'In crystallisation, a hot saturated solution is cooled so pure crystals grow while soluble impurities stay behind',
+          'Crystallisation converts a solid directly into a gas without liquid',
+          'Crystallisation collects the water vapour in a Liebig condenser'
+        ],
+        correct: 0,
+        explanation: 'Evaporation boils away all the solvent leaving everything (including impurities) as a dry crust, whereas crystallisation cools a saturated solution so pure geometric crystals separate out (Page 118 & 120 Summary).'
+      },
+      {
+        id: 'q4',
+        page: 'Page 119 & 122 • Q7',
+        question: '4. What type of mixture can be separated by the sublimation process?',
+        options: [
+          'Two miscible liquids like kerosene and petrol',
+          'A mixture of solids where one solid sublimes (e.g. ammonium chloride, camphor, naphthalene) and the impurities do not sublime',
+          'Any insoluble rock mixed with water'
+        ],
+        correct: 1,
+        explanation: 'Page 119: Sublimation separates a mixture of solids where one undergoes direct solid-to-gas conversion (like NH₄Cl, camphor, or naphthalene) while the other (like NaCl) does not.'
+      },
+      {
+        id: 'q5',
+        page: 'Page 119 • Q2',
+        question: '5. Why does ammonium chloride get stuck on the inner wall of the inverted funnel during sublimation?',
+        options: [
+          'Because the upper walls of the inverted funnel are cooler, causing the hot NH₄Cl vapour to cool and solidify directly onto the glass',
+          'Because sodium chloride melts and glues it to the funnel',
+          'Because water condenses from the Bunsen burner'
+        ],
+        correct: 0,
+        explanation: 'When rising white fumes of ammonium chloride touch the cooler upper walls of the inverted funnel, they lose heat and convert directly back into solid ammonium chloride (Page 119).'
+      },
+      {
+        id: 'q6',
+        page: 'Page 122 • Q6',
+        question: '6. In the distillation process, why should the distillation flask NOT be filled to more than two-thirds of its volume?',
+        options: [
+          'To prevent boiling impure solution from bumping and splashing directly into the condenser and contaminating the distillate',
+          'Because glass flasks melt if filled above two-thirds',
+          'So that salt can sublime out of the top'
+        ],
+        correct: 0,
+        explanation: 'Leaving at least 1/3 headspace prevents vigorous boiling bubbles from splashing impure saltwater into the Liebig condenser.'
+      },
+      {
+        id: 'q7',
+        page: 'Page 121 & 122 • Q9 & Q10',
+        question: '7. Why is it critically important to purify substances in the medicinal and food industries?',
+        options: [
+          'To ensure medicines and food additives are free of harmful contaminants, safe for human consumption, and have accurate properties',
+          'To make medicines heavier to transport',
+          'To increase the boiling point of drinking water'
+        ],
+        correct: 0,
+        explanation: 'Page 121: Medicines and food chemicals must be tested and purified so they are safe for consumption and their exact chemical properties are reliable.'
+      },
+      {
+        id: 'q8',
+        page: 'Page 117, 121 & 122 • Q11',
+        question: '8. Which separation techniques are used in the commercial production and purification of salt from seawater?',
+        options: [
+          'Evaporation (in solar salt pans) followed by Crystallisation (for purification)',
+          'Sublimation under an inverted funnel',
+          'Magnetic separation'
+        ],
+        correct: 0,
+        explanation: 'Page 117 shows sea salt harvested by evaporating seawater in ponds, and Page 121 notes that crystallisation is used in the purification of seawater salt.'
+      }
+    ];
+
+    // ============================================================================
+    // 4. APPLICATION STATE & INITIALIZATION
+    // ============================================================================
+    const state = {
+      activeTab: 'lab',
+      currentTech: 'evaporation',
+      progress: 18, // 0 to 100
+      isPlaying: false,
+      speed: 1,
+      showParticleLens: true,
+      showLabels: true,
+      selectedPartIndex: 0,
+      lastFrameTime: performance.now(),
+      tick: 0,
+      // Mixture solver state
+      mixStep: 1,
+      // Quiz state
+      quizAnswers: {}
+    };
+
+    // DOM Elements
+    const canvas = document.getElementById('labCanvas');
+    const ctx = canvas.getContext('2d');
+    const scrubberInput = document.getElementById('scrubberInput');
+    const scrubPercentDisplay = document.getElementById('scrubPercentDisplay');
+    const playPauseBtn = document.getElementById('playPauseBtn');
+    const playPauseIcon = document.getElementById('playPauseIcon');
+    const playPauseLabel = document.getElementById('playPauseLabel');
+    const hotspotOverlay = document.getElementById('hotspotOverlay');
+
+    // Deterministic Particle Pool for smooth animations
+    const particles = Array.from({ length: 48 }, (_, i) => ({
+      id: i,
+      seedX: (Math.sin(i * 12.9898) * 43758.5453) % 1,
+      seedY: (Math.cos(i * 78.233) * 19341.1234) % 1,
+      phase: (i * 0.43) % (Math.PI * 2),
+      speedFactor: 0.65 + (i % 7) * 0.11,
+      type: i % 3 === 0 ? 'solute' : 'solvent'
+    })).map(p => ({
+      ...p,
+      seedX: Math.abs(p.seedX),
+      seedY: Math.abs(p.seedY)
+    }));
+
+    // ============================================================================
+    // 5. UI SYNCHRONIZATION & TECHNIQUE SWITCHING
+    // ============================================================================
+    function setActiveTab(tabId) {
+      state.activeTab = tabId;
+      const sections = {
+        lab: document.getElementById('sectionLab'),
+        mixtures: document.getElementById('sectionMixtures'),
+        world: document.getElementById('sectionWorld'),
+        quiz: document.getElementById('sectionQuiz')
+      };
+      Object.entries(sections).forEach(([k, el]) => {
+        if (k === tabId) el.classList.remove('hidden');
+        else el.classList.add('hidden');
+      });
+
+      document.querySelectorAll('.nav-tab-btn').forEach(btn => {
+        const isCurrent = btn.getAttribute('data-tab') === tabId;
+        btn.className = isCurrent
+          ? 'nav-tab-btn px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all bg-sky-500 text-slate-950 shadow-sm whitespace-nowrap'
+          : 'nav-tab-btn px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all text-slate-300 hover:text-white hover:bg-slate-800/60 whitespace-nowrap';
+      });
+
+      if (tabId === 'lab') {
+        resizeCanvas();
+      }
+    }
+
+    function selectTechnique(techId, resetProgress = false) {
+      if (!TECHNIQUES[techId]) return;
+      state.currentTech = techId;
+      state.selectedPartIndex = 0;
+      if (resetProgress) {
+        state.progress = 15;
+        scrubberInput.value = state.progress;
+      }
+
+      // Highlight top technique button
+      document.querySelectorAll('.tech-select-btn').forEach(btn => {
+        const isSelected = btn.getAttribute('data-tech') === techId;
+        btn.className = isSelected
+          ? 'tech-select-btn group relative text-left p-3.5 rounded-2xl border transition-all bg-slate-900/95 border-sky-500 shadow-lg shadow-sky-500/15'
+          : 'tech-select-btn group relative text-left p-3.5 rounded-2xl border transition-all bg-slate-900/50 border-slate-800 hover:border-slate-700';
+      });
+
+      renderMilestones();
+      renderPartsInspector();
+      renderHotspotOverlay();
+      updateStaticTechniqueCards();
+      updateScrubberStateUI();
+    }
+
+    function renderMilestones() {
+      const tech = TECHNIQUES[state.currentTech];
+      const bar = document.getElementById('milestoneBar');
+      bar.innerHTML = '';
+      tech.milestones.forEach((m, idx) => {
+        const isActive = state.progress >= m.range[0] && (state.progress < m.range[1] || (idx === 3 && state.progress <= 100));
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = isActive
+          ? 'px-2 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold bg-sky-500/20 text-sky-300 border border-sky-500/50 transition-all text-center truncate'
+          : 'px-2 py-1.5 rounded-lg text-[11px] sm:text-xs font-medium bg-slate-800/80 hover:bg-slate-800 text-slate-300 border border-slate-700/70 transition-all text-center truncate';
+        btn.textContent = m.label;
+        btn.addEventListener('click', () => {
+          state.progress = m.pct;
+          scrubberInput.value = state.progress;
+          updateScrubberStateUI();
+        });
+        bar.appendChild(btn);
+      });
+    }
+
+    function renderPartsInspector() {
+      const tech = TECHNIQUES[state.currentTech];
+      const list = document.getElementById('partSelectorList');
+      list.innerHTML = '';
+      tech.parts.forEach((part, idx) => {
+        const isSelected = idx === state.selectedPartIndex;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = isSelected
+          ? 'px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 transition-all'
+          : 'px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-800/90 hover:bg-slate-800 text-slate-300 border border-slate-700 transition-all';
+        btn.textContent = part.name;
+        btn.addEventListener('click', () => {
+          state.selectedPartIndex = idx;
+          renderPartsInspector();
+          renderHotspotOverlay();
+        });
+        list.appendChild(btn);
+      });
+
+      const activePart = tech.parts[state.selectedPartIndex] || tech.parts[0];
+      document.getElementById('partDetailTitle').textContent = activePart.name;
+      document.getElementById('partDetailTag').textContent = activePart.tag;
+      document.getElementById('partDetailText').textContent = activePart.text;
+    }
+
+    function renderHotspotOverlay() {
+      const tech = TECHNIQUES[state.currentTech];
+      hotspotOverlay.innerHTML = '';
+      if (!state.showLabels) return;
+
+      tech.parts.forEach((part, idx) => {
+        const isSelected = idx === state.selectedPartIndex;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.style.left = `${part.xPct}%`;
+        btn.style.top = `${part.yPct}%`;
+        btn.className = `hotspot-pill pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 px-2.5 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1.5 shadow-lg backdrop-blur-md border ${
+          isSelected
+            ? 'bg-emerald-500 text-slate-950 border-white font-bold z-20'
+            : 'bg-slate-900/90 text-slate-100 border-slate-600/80 hover:border-sky-400 z-10'
+        }`;
+        btn.innerHTML = `<span class="w-2 h-2 rounded-full ${isSelected ? 'bg-slate-950' : 'bg-sky-400'}"></span><span>${part.name}</span>`;
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          state.selectedPartIndex = idx;
+          renderPartsInspector();
+          renderHotspotOverlay();
+        });
+        hotspotOverlay.appendChild(btn);
+      });
+    }
+
+    function updateStaticTechniqueCards() {
+      const tech = TECHNIQUES[state.currentTech];
+      document.getElementById('rightPageRef').textContent = `Textbook ${tech.pageRef}`;
+      document.getElementById('hudMetric1Label').textContent = tech.metric1Label;
+      document.getElementById('hudMetric2Label').textContent = tech.metric2Label;
+      document.getElementById('realWorldIcon').textContent = tech.realWorldIcon;
+      document.getElementById('realWorldBadge').textContent = tech.realWorldBadge;
+      document.getElementById('realWorldTitle').textContent = tech.realWorldTitle;
+      document.getElementById('realWorldBody').textContent = tech.realWorldBody;
+      document.getElementById('quickQQuestion').textContent = tech.quickQ.q;
+      const ansEl = document.getElementById('quickQAnswer');
+      ansEl.textContent = tech.quickQ.a;
+      ansEl.classList.add('hidden');
+    }
+
+    function updateScrubberStateUI() {
+      const tech = TECHNIQUES[state.currentTech];
+      const p = state.progress;
+      scrubPercentDisplay.textContent = `${Math.round(p)}%`;
+
+      // Find active stage
+      let stageIdx = tech.stages.findIndex((s, i) => p >= s.range[0] && (p < s.range[1] || i === tech.stages.length - 1));
+      if (stageIdx === -1) stageIdx = 0;
+      const stage = tech.stages[stageIdx];
+
+      document.getElementById('stageBadge').textContent = stage.badge;
+      document.getElementById('stageTitleTop').textContent = stage.title;
+      document.getElementById('stageSubtitleTop').textContent = stage.subtitle;
+      document.getElementById('rightStageTitle').textContent = stage.title;
+      document.getElementById('rightStageDesc').textContent = stage.desc;
+      document.getElementById('rightParticleDesc').textContent = stage.particleDesc;
+
+      // Update live telemetry HUD based on technique and progress
+      let temp = 25;
+      let m1 = '100%';
+      let m2 = '0%';
+
+      if (state.currentTech === 'evaporation') {
+        temp = p < 30 ? Math.round(25 + (p / 30) * 75) : 100;
+        const waterLeft = Math.max(0, Math.round(100 - Math.max(0, (p - 15) / 80) * 100));
+        const saltYield = Math.min(100, Math.round(Math.max(0, (p - 25) / 70) * 100));
+        m1 = `${waterLeft}%`;
+        m2 = `${saltYield}%`;
+      } else if (state.currentTech === 'crystallisation') {
+        if (p < 50) {
+          temp = Math.round(25 + (p / 50) * 70);
+        } else {
+          temp = Math.round(95 - ((p - 50) / 50) * 70);
+        }
+        const sat = Math.min(100, Math.round(60 + (p / 55) * 40));
+        const crys = p < 50 ? 0 : Math.min(100, Math.round(((p - 50) / 45) * 100));
+        m1 = `${sat}%`;
+        m2 = `${crys}%`;
+      } else if (state.currentTech === 'sublimation') {
+        temp = p < 80 ? Math.round(25 + Math.min(1, p / 35) * 290) : Math.round(315 - ((p - 80) / 20) * 260);
+        const fumes = p < 20 ? 0 : p < 80 ? Math.min(100, Math.round(((p - 20) / 50) * 100)) : Math.max(0, Math.round(100 - ((p - 80) / 15) * 100));
+        const solidSub = p < 40 ? 0 : Math.min(100, Math.round(((p - 40) / 50) * 100));
+        m1 = `${fumes}% active`;
+        m2 = `${solidSub}%`;
+      } else if (state.currentTech === 'distillation') {
+        temp = p < 30 ? Math.round(25 + (p / 30) * 75) : 100;
+        const flaskLeft = Math.max(25, Math.round(100 - Math.max(0, (p - 25) / 75) * 70));
+        const distillate = Math.min(100, Math.round(Math.max(0, (p - 45) / 52) * 100));
+        m1 = `${flaskLeft}%`;
+        m2 = `${distillate}%`;
+      }
+
+      document.getElementById('hudTemp').textContent = `${temp} °C`;
+      document.getElementById('hudMetric1Val').textContent = m1;
+      document.getElementById('hudMetric2Val').textContent = m2;
+
+      renderMilestones();
+    }
+
+    function setPlaying(playing) {
+      state.isPlaying = playing;
+      if (playing) {
+        if (state.progress >= 99.5) {
+          state.progress = 0;
+          scrubberInput.value = 0;
+        }
+        playPauseIcon.textContent = '⏸';
+        playPauseLabel.textContent = 'Pause Animation';
+        playPauseBtn.classList.replace('bg-sky-500', 'bg-amber-500');
+        playPauseBtn.classList.replace('hover:bg-sky-400', 'hover:bg-amber-400');
+      } else {
+        playPauseIcon.textContent = '▶';
+        playPauseLabel.textContent = 'Play Animation';
+        playPauseBtn.classList.replace('bg-amber-500', 'bg-sky-500');
+        playPauseBtn.classList.replace('hover:bg-amber-400', 'hover:bg-sky-400');
+      }
+    }
+
+    // ============================================================================
+    // 6. CANVAS DRAWING ENGINE (4 TECHNIQUES + PARTICLE LENS)
+    // ============================================================================
+    function resizeCanvas() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(320, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(320, Math.floor(rect.height * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    // Helper: Draw Bunsen Burner + Tripod + Wire Gauze
+    function drawBurnerAndStand(ctx, cx, bottomY, flameIntensity, t) {
+      // Lab bench surface line
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(cx - 190, bottomY);
+      ctx.lineTo(cx + 190, bottomY);
+      ctx.stroke();
+
+      // Tripod legs
+      const gauzeY = bottomY - 135;
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(cx - 68, gauzeY);
+      ctx.lineTo(cx - 92, bottomY);
+      ctx.moveTo(cx + 68, gauzeY);
+      ctx.lineTo(cx + 92, bottomY);
+      ctx.stroke();
+
+      // Wire Gauze with cross-hatch look
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(cx - 82, gauzeY - 4, 164, 7);
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 1;
+      for (let x = cx - 76; x <= cx + 76; x += 10) {
+        ctx.beginPath();
+        ctx.moveTo(x, gauzeY - 4);
+        ctx.lineTo(x + 4, gauzeY + 3);
+        ctx.stroke();
+      }
+
+      // Bunsen Burner Base & Chimney
+      ctx.fillStyle = '#64748b';
+      ctx.beginPath();
+      ctx.ellipse(cx, bottomY - 4, 34, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      const gradTube = ctx.createLinearGradient(cx - 10, 0, cx + 10, 0);
+      gradTube.addColorStop(0, '#475569');
+      gradTube.addColorStop(0.5, '#cbd5e1');
+      gradTube.addColorStop(1, '#334155');
+      ctx.fillStyle = gradTube;
+      ctx.fillRect(cx - 9, bottomY - 68, 18, 62);
+
+      // Collar
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillRect(cx - 12, bottomY - 30, 24, 10);
+
+      // Flame if active
+      if (flameIntensity > 0.02) {
+        const flicker = Math.sin(t * 14) * 3 + Math.cos(t * 23) * 2;
+        const flameH = (58 + flicker) * flameIntensity;
+        const flameTopY = bottomY - 68 - flameH;
+
+        // Outer orange/amber glow
+        const outerGrad = ctx.createRadialGradient(cx, bottomY - 88, 4, cx, bottomY - 95, 55 * flameIntensity);
+        outerGrad.addColorStop(0, 'rgba(251, 191, 36, 0.95)');
+        outerGrad.addColorStop(0.55, 'rgba(249, 115, 22, 0.7)');
+        outerGrad.addColorStop(1, 'rgba(239, 68, 68, 0)');
+        ctx.fillStyle = outerGrad;
+        ctx.beginPath();
+        ctx.moveTo(cx - 14 * flameIntensity, bottomY - 68);
+        ctx.quadraticCurveTo(cx - 22 * flameIntensity, bottomY - 68 - flameH * 0.5, cx + flicker * 0.4, flameTopY);
+        ctx.quadraticCurveTo(cx + 22 * flameIntensity, bottomY - 68 - flameH * 0.5, cx + 14 * flameIntensity, bottomY - 68);
+        ctx.closePath();
+        ctx.fill();
+
+        // Inner blue cone
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.9)';
+        ctx.beginPath();
+        ctx.moveTo(cx - 7 * flameIntensity, bottomY - 68);
+        ctx.quadraticCurveTo(cx, bottomY - 68 - flameH * 0.55, cx + 7 * flameIntensity, bottomY - 68);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      return { gauzeY };
+    }
+
+    // ----------------------------------------------------------------------------
+    // SCENE 1: EVAPORATION (Page 117)
+    // ----------------------------------------------------------------------------
+    function drawEvaporationScene(ctx, w, h, p, t) {
+      const cx = state.showParticleLens ? w * 0.36 : w * 0.5;
+      const bottomY = h - 42;
+      const flameIntensity = p < 90 ? Math.min(1, 0.4 + (p / 30) * 0.6) : Math.max(0, 1 - (p - 90) / 10);
+      const { gauzeY } = drawBurnerAndStand(ctx, cx, bottomY, flameIntensity, t);
+
+      // Evaporating Basin (Hemispherical porcelain dish sitting on gauzeY - 4)
+      const basinTopY = gauzeY - 58;
+      const basinBottomY = gauzeY - 4;
+      const basinRx = 78;
+
+      // Liquid water level inside basin (shrinks from 1.0 to 0.0 as p goes 15 -> 88)
+      const waterFrac = Math.max(0, Math.min(1, 1 - Math.max(0, p - 15) / 73));
+      const saltFrac = Math.max(0, Math.min(1, Math.max(0, p - 25) / 68));
+
+      ctx.save();
+      // Clip inside basin interior
+      ctx.beginPath();
+      ctx.moveTo(cx - basinRx, basinTopY);
+      ctx.quadraticCurveTo(cx, basinBottomY + 46, cx + basinRx, basinTopY);
+      ctx.closePath();
+      ctx.clip();
+
+      // Saltwater liquid fill
+      if (waterFrac > 0.01) {
+        const liqTopY = basinBottomY - waterFrac * 44;
+        const liqGrad = ctx.createLinearGradient(0, liqTopY, 0, basinBottomY);
+        liqGrad.addColorStop(0, 'rgba(56, 189, 248, 0.55)');
+        liqGrad.addColorStop(1, 'rgba(14, 165, 233, 0.85)');
+        ctx.fillStyle = liqGrad;
+        ctx.fillRect(cx - basinRx, liqTopY, basinRx * 2, basinBottomY - liqTopY + 20);
+
+        // Surface wave
+        ctx.strokeStyle = 'rgba(186, 230, 253, 0.85)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let x = cx - basinRx; x <= cx + basinRx; x += 6) {
+          const wave = Math.sin(x * 0.08 + t * 6) * (p > 25 ? 2.2 : 0.6);
+          if (x === cx - basinRx) ctx.moveTo(x, liqTopY + wave);
+          else ctx.lineTo(x, liqTopY + wave);
+        }
+        ctx.stroke();
+
+        // Boiling bubbles when p >= 25
+        if (p >= 22 && waterFrac > 0.08) {
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+          for (let i = 0; i < 12; i++) {
+            const bx = cx + (particles[i].seedX - 0.5) * 110;
+            const cycle = (t * 1.6 * particles[i].speedFactor + particles[i].phase) % 1;
+            const by = basinBottomY - 6 - cycle * (basinBottomY - liqTopY - 6);
+            ctx.beginPath();
+            ctx.arc(bx, by, 2.5 + (i % 3), 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+
+      // Accumulating white salt layer at bottom of basin
+      if (saltFrac > 0.02) {
+        const saltH = 6 + saltFrac * 18;
+        ctx.fillStyle = '#f8fafc';
+        ctx.beginPath();
+        ctx.moveTo(cx - 56, basinBottomY + 4);
+        for (let x = cx - 54; x <= cx + 54; x += 9) {
+          const mound = Math.sin(x * 0.25) * 2.5 * saltFrac;
+          ctx.lineTo(x, basinBottomY - saltH + mound + Math.pow((x - cx) / 58, 2) * 10);
+        }
+        ctx.lineTo(cx + 56, basinBottomY + 4);
+        ctx.closePath();
+        ctx.fill();
+
+        // Granular salt sparkles
+        ctx.fillStyle = '#cbd5e1';
+        for (let i = 0; i < 16; i++) {
+          const sx = cx + (particles[i].seedX - 0.5) * 76 * saltFrac;
+          const sy = basinBottomY - 3 - particles[i].seedY * (saltH * 0.65);
+          ctx.fillRect(sx, sy, 2.5, 2.5);
+        }
+      }
+      ctx.restore();
+
+      // Draw Basin Porcelain Rim & Body Outline
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(cx - basinRx, basinTopY);
+      ctx.quadraticCurveTo(cx, basinBottomY + 46, cx + basinRx, basinTopY);
+      ctx.stroke();
+
+      // Basin top ellipse rim
+      ctx.fillStyle = 'rgba(241, 245, 249, 0.12)';
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.ellipse(cx, basinTopY, basinRx, 11, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Rising Water Vapour plumes when p >= 18 and waterFrac > 0
+      if (p >= 15 && p <= 94) {
+        const vapIntensity = p < 85 ? Math.min(1, (p - 15) / 25) : Math.max(0.15, 1 - (p - 85) / 12);
+        for (let i = 0; i < 7; i++) {
+          const streamX = cx - 45 + i * 15;
+          const progressOffset = (t * 0.85 + i * 0.37) % 1;
+          const vy = basinTopY - 12 - progressOffset * 115;
+          const vx = streamX + Math.sin(progressOffset * Math.PI * 2 + i) * 10;
+          const alpha = Math.sin(progressOffset * Math.PI) * 0.65 * vapIntensity;
+
+          ctx.strokeStyle = `rgba(186, 230, 253, ${alpha})`;
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(vx, vy + 18);
+          ctx.quadraticCurveTo(vx - 8, vy + 9, vx + 4, vy);
+          ctx.stroke();
+        }
+      }
+
+      // Particle Zoom Lens on the Right Side
+      if (state.showParticleLens) {
+        drawParticleLens(ctx, w - 135, h * 0.47, 96, 'evaporation', p, t);
+      }
+    }
+
+    // ----------------------------------------------------------------------------
+    // SCENE 2: CRYSTALLISATION (Page 118)
+    // ----------------------------------------------------------------------------
+    function drawCrystallisationScene(ctx, w, h, p, t) {
+      const cx = state.showParticleLens ? w * 0.36 : w * 0.5;
+      const bottomY = h - 42;
+      // Burner is ON during Stage 1-2 (p < 55), turns OFF during cooling Stage 3-4 (p >= 55)
+      const flameIntensity = p < 52 ? Math.min(1, 0.35 + (p / 45) * 0.65) : Math.max(0, 1 - (p - 52) / 5);
+      const { gauzeY } = drawBurnerAndStand(ctx, cx, bottomY, flameIntensity, t);
+
+      const basinTopY = gauzeY - 58;
+      const basinBottomY = gauzeY - 4;
+      const basinRx = 78;
+
+      // In crystallisation, only PART of the solvent evaporates (down to ~55% volume), then it cools!
+      const waterFrac = p < 55 ? 0.92 - (p / 55) * 0.35 : 0.57;
+      const crystalFrac = p < 52 ? 0 : Math.min(1, (p - 52) / 42);
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(cx - basinRx, basinTopY);
+      ctx.quadraticCurveTo(cx, basinBottomY + 46, cx + basinRx, basinTopY);
+      ctx.closePath();
+      ctx.clip();
+
+      const liqTopY = basinBottomY - waterFrac * 46;
+      const liqGrad = ctx.createLinearGradient(0, liqTopY, 0, basinBottomY);
+      liqGrad.addColorStop(0, 'rgba(34, 211, 238, 0.65)');
+      liqGrad.addColorStop(1, 'rgba(2, 132, 199, 0.92)');
+      ctx.fillStyle = liqGrad;
+      ctx.fillRect(cx - basinRx, liqTopY, basinRx * 2, basinBottomY - liqTopY + 20);
+
+      // Geometric Crystals growing on surface and bottom when cooling (p >= 52)
+      if (crystalFrac > 0.02) {
+        const crystalPositions = [-44, -28, -12, 4, 19, 34, 48];
+        crystalPositions.forEach((dx, idx) => {
+          const size = (6 + (idx % 3) * 3.5) * crystalFrac;
+          const cy = basinBottomY - 4 - (idx % 2) * 4;
+          const x = cx + dx;
+          // Draw geometric diamond/hex crystal
+          ctx.fillStyle = idx % 2 === 0 ? '#ecfeff' : '#a5f3fc';
+          ctx.strokeStyle = '#0891b2';
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.moveTo(x, cy - size * 1.4);
+          ctx.lineTo(x + size, cy - size * 0.3);
+          ctx.lineTo(x + size * 0.7, cy + size * 0.5);
+          ctx.lineTo(x - size * 0.7, cy + size * 0.5);
+          ctx.lineTo(x - size, cy - size * 0.3);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        });
+
+        // Surface crystals accumulating (Textbook Step 3: "Crystals of solute start accumulating on the surface")
+        for (let i = -36; i <= 36; i += 18) {
+          const sSize = 5.5 * crystalFrac;
+          ctx.fillStyle = '#cffafe';
+          ctx.beginPath();
+          ctx.moveTo(cx + i, liqTopY - sSize);
+          ctx.lineTo(cx + i + sSize * 1.2, liqTopY + 2);
+          ctx.lineTo(cx + i, liqTopY + sSize);
+          ctx.lineTo(cx + i - sSize * 1.2, liqTopY + 2);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+      ctx.restore();
+
+      // Basin outline
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(cx - basinRx, basinTopY);
+      ctx.quadraticCurveTo(cx, basinBottomY + 46, cx + basinRx, basinTopY);
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(241, 245, 249, 0.1)';
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.ellipse(cx, basinTopY, basinRx, 11, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Vapour during heating phase (p < 55)
+      if (p >= 18 && p < 55) {
+        for (let i = 0; i < 5; i++) {
+          const streamX = cx - 32 + i * 16;
+          const progressOffset = (t * 0.8 + i * 0.3) % 1;
+          const vy = basinTopY - 10 - progressOffset * 90;
+          ctx.strokeStyle = `rgba(165, 243, 252, ${Math.sin(progressOffset * Math.PI) * 0.6})`;
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(streamX, vy + 15);
+          ctx.quadraticCurveTo(streamX - 6, vy + 7, streamX + 5, vy);
+          ctx.stroke();
+        }
+      }
+
+      // Cooling indicator badge when p >= 55
+      if (p >= 55) {
+        ctx.fillStyle = 'rgba(14, 165, 233, 0.2)';
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(cx - 72, basinTopY - 52, 144, 26, 8);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#bae6fd';
+        ctx.font = '600 11px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(p < 85 ? '❄️ Cooling → Crystals Grow' : '💎 Pure Crystals Ready', cx, basinTopY - 35);
+      }
+
+      if (state.showParticleLens) {
+        drawParticleLens(ctx, w - 135, h * 0.47, 96, 'crystallisation', p, t);
+      }
+    }
+
+    // ----------------------------------------------------------------------------
+    // SCENE 3: SUBLIMATION (Page 119)
+    // ----------------------------------------------------------------------------
+    function drawSublimationScene(ctx, w, h, p, t) {
+      const cx = state.showParticleLens ? w * 0.36 : w * 0.5;
+      const bottomY = h - 36;
+      const flameIntensity = p >= 15 && p < 82 ? 0.9 : 0;
+      const { gauzeY } = drawBurnerAndStand(ctx, cx, bottomY, flameIntensity, t);
+
+      const dishTopY = gauzeY - 32;
+      const dishBottomY = gauzeY - 4;
+      const dishRx = 76;
+
+      // China dish containing NH4Cl + NaCl mixture
+      ctx.fillStyle = 'rgba(226, 232, 240, 0.2)';
+      ctx.strokeStyle = '#f1f5f9';
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.moveTo(cx - dishRx, dishTopY);
+      ctx.quadraticCurveTo(cx, dishBottomY + 22, cx + dishRx, dishTopY);
+      ctx.stroke();
+
+      // Solid mixture pile at bottom of china dish
+      ctx.fillStyle = '#fde68a'; // NaCl grains remain
+      ctx.beginPath();
+      ctx.ellipse(cx, dishBottomY - 6, 48, 9, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // White NH4Cl grains in dish (shrinks as p goes 20 -> 80)
+      const nh4Remaining = Math.max(0, 1 - Math.max(0, p - 20) / 60);
+      if (nh4Remaining > 0.05) {
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.ellipse(cx, dishBottomY - 8, 42 * nh4Remaining, 7 * nh4Remaining, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Inverted Glass Funnel (lifts slightly at p > 85 to show final recovery!)
+      const liftOffset = p > 85 ? ((p - 85) / 15) * 18 : 0;
+      const fBaseY = dishTopY + 2 - liftOffset;
+      const fNeckY = fBaseY - 92;
+      const fTopY = fNeckY - 82;
+
+      // White fumes of NH4Cl inside funnel (active when 22 <= p <= 82)
+      if (p >= 20 && p <= 84) {
+        const fumeAlpha = p < 72 ? Math.min(0.65, ((p - 20) / 25) * 0.65) : Math.max(0, 0.65 * (1 - (p - 72) / 12));
+        const fumeGrad = ctx.createRadialGradient(cx, fBaseY - 42, 8, cx, fBaseY - 55, 68);
+        fumeGrad.addColorStop(0, `rgba(248, 250, 252, ${fumeAlpha})`);
+        fumeGrad.addColorStop(1, 'rgba(248, 250, 252, 0)');
+        ctx.fillStyle = fumeGrad;
+        ctx.beginPath();
+        ctx.moveTo(cx - 72, fBaseY);
+        ctx.lineTo(cx - 14, fNeckY);
+        ctx.lineTo(cx + 14, fNeckY);
+        ctx.lineTo(cx + 72, fBaseY);
+        ctx.closePath();
+        ctx.fill();
+
+        // Rising white fume particles
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        for (let i = 0; i < 14; i++) {
+          const cycle = (t * 0.9 * particles[i].speedFactor + particles[i].phase) % 1;
+          const py = fBaseY - 10 - cycle * 78;
+          const spread = (1 - cycle * 0.75) * 48;
+          const px = cx + (particles[i].seedX - 0.5) * 2 * spread;
+          ctx.beginPath();
+          ctx.arc(px, py, 3.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // Solidified Ammonium Chloride crust on upper inner walls of inverted funnel
+      const depositFrac = Math.max(0, Math.min(1, (p - 38) / 45));
+      if (depositFrac > 0.02) {
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.4 + depositFrac * 0.6})`;
+        ctx.lineWidth = 4 + depositFrac * 6;
+        ctx.lineCap = 'round';
+        // Left inner wall deposit
+        ctx.beginPath();
+        ctx.moveTo(cx - 42, fBaseY - 38);
+        ctx.lineTo(cx - 16, fNeckY + 6);
+        ctx.stroke();
+        // Right inner wall deposit
+        ctx.beginPath();
+        ctx.moveTo(cx + 42, fBaseY - 38);
+        ctx.lineTo(cx + 16, fNeckY + 6);
+        ctx.stroke();
+      }
+
+      // Funnel Glass Outline
+      ctx.strokeStyle = 'rgba(186, 230, 253, 0.85)';
+      ctx.fillStyle = 'rgba(186, 230, 253, 0.08)';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(cx - 72, fBaseY);
+      ctx.lineTo(cx - 13, fNeckY);
+      ctx.lineTo(cx - 13, fTopY);
+      ctx.lineTo(cx + 13, fTopY);
+      ctx.lineTo(cx + 13, fNeckY);
+      ctx.lineTo(cx + 72, fBaseY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Cotton Plug at top of funnel stem
+      ctx.fillStyle = '#f8fafc';
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(cx - 5, fTopY - 2, 8, 0, Math.PI * 2);
+      ctx.arc(cx + 5, fTopY - 2, 8, 0, Math.PI * 2);
+      ctx.arc(cx, fTopY - 7, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      if (state.showParticleLens) {
+        drawParticleLens(ctx, w - 135, h * 0.47, 96, 'sublimation', p, t);
+      }
+    }
+
+    // ----------------------------------------------------------------------------
+    // SCENE 4: SIMPLE DISTILLATION (Page 120)
+    // ----------------------------------------------------------------------------
+    function drawDistillationScene(ctx, w, h, p, t) {
+      const flaskX = state.showParticleLens ? w * 0.22 : w * 0.28;
+      const bottomY = h - 36;
+      const flameIntensity = p < 92 ? Math.min(1, 0.35 + (p / 30) * 0.65) : 0.2;
+
+      // Bench line
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(20, bottomY);
+      ctx.lineTo(w - 20, bottomY);
+      ctx.stroke();
+
+      // Draw Burner & Stand under Distillation Flask
+      const { gauzeY } = drawBurnerAndStand(ctx, flaskX, bottomY, flameIntensity, t);
+
+      const flaskCenterY = gauzeY - 46;
+      const flaskR = 45;
+      const neckTopY = flaskCenterY - 108;
+      const sideArmY = flaskCenterY - 74;
+
+      // Liquid inside Round-Bottom Flask (≤ 2/3 full! Shrinks slightly as water distills over)
+      const waterFrac = 0.64 - Math.max(0, (p - 25) / 75) * 0.28;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(flaskX, flaskCenterY, flaskR - 2, 0, Math.PI * 2);
+      ctx.clip();
+
+      const liqTopY = flaskCenterY + flaskR - waterFrac * (flaskR * 2);
+      const liqGrad = ctx.createLinearGradient(0, liqTopY, 0, flaskCenterY + flaskR);
+      liqGrad.addColorStop(0, 'rgba(56, 189, 248, 0.65)');
+      liqGrad.addColorStop(1, 'rgba(3, 105, 161, 0.92)');
+      ctx.fillStyle = liqGrad;
+      ctx.fillRect(flaskX - flaskR, liqTopY, flaskR * 2, flaskR * 2);
+
+      // Boiling bubbles in flask when p >= 25
+      if (p >= 25) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        for (let i = 0; i < 9; i++) {
+          const cycle = (t * 1.5 * particles[i].speedFactor + particles[i].phase) % 1;
+          const bx = flaskX + (particles[i].seedX - 0.5) * 55;
+          const by = flaskCenterY + 32 - cycle * 45;
+          ctx.beginPath();
+          ctx.arc(bx, by, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.restore();
+
+      // Flask Outline + Neck
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(flaskX, flaskCenterY, flaskR, -Math.PI * 0.38, Math.PI * 1.38);
+      ctx.stroke();
+
+      // Neck walls
+      ctx.fillStyle = 'rgba(203, 213, 225, 0.08)';
+      ctx.fillRect(flaskX - 13, neckTopY, 26, flaskCenterY - flaskR - neckTopY + 8);
+      ctx.beginPath();
+      ctx.moveTo(flaskX - 13, flaskCenterY - flaskR + 5);
+      ctx.lineTo(flaskX - 13, neckTopY);
+      ctx.moveTo(flaskX + 13, flaskCenterY - flaskR + 5);
+      ctx.lineTo(flaskX + 13, neckTopY);
+      ctx.stroke();
+
+      // Thermometer inserted at top of neck
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(flaskX - 15, neckTopY - 6, 30, 10); // Rubber bung
+      ctx.strokeStyle = '#f8fafc';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(flaskX, neckTopY - 52);
+      ctx.lineTo(flaskX, sideArmY + 8);
+      ctx.stroke();
+      // Red mercury thread & bulb
+      const thermHeight = p < 30 ? 12 + (p / 30) * 35 : 47;
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(flaskX, sideArmY + 8);
+      ctx.lineTo(flaskX, sideArmY + 8 - thermHeight);
+      ctx.stroke();
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.arc(flaskX, sideArmY + 10, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Angled Side-Arm & Liebig Condenser geometry
+      const condStartX = flaskX + 13;
+      const condStartY = sideArmY;
+      const condEndX = flaskX + (state.showParticleLens ? 215 : 265);
+      const condEndY = sideArmY + 108;
+
+      const angle = Math.atan2(condEndY - condStartY, condEndX - condStartX);
+      const condLen = Math.hypot(condEndX - condStartX, condEndY - condStartY);
+
+      ctx.save();
+      ctx.translate(condStartX, condStartY);
+      ctx.rotate(angle);
+
+      // Outer Cooling Jacket (from x = 35 to condLen - 35)
+      const jStart = 34;
+      const jEnd = condLen - 34;
+      const jWidth = 34;
+
+      // Cooling water fill inside jacket
+      const jacketGrad = ctx.createLinearGradient(jStart, -jWidth / 2, jEnd, jWidth / 2);
+      jacketGrad.addColorStop(0, 'rgba(56, 189, 248, 0.38)');
+      jacketGrad.addColorStop(1, 'rgba(14, 165, 233, 0.55)');
+      ctx.fillStyle = jacketGrad;
+      ctx.strokeStyle = '#7dd3fc';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(jStart, -jWidth / 2, jEnd - jStart, jWidth, 8);
+      ctx.fill();
+      ctx.stroke();
+
+      // Cool water in (bottom right port) & Water out (top left port) nozzles
+      ctx.fillStyle = 'rgba(14, 165, 233, 0.5)';
+      ctx.fillRect(jEnd - 16, jWidth / 2, 10, 18); // Cool water IN
+      ctx.fillRect(jStart + 6, -jWidth / 2 - 18, 10, 18); // Water OUT
+
+      // Inner Delivery Tube
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 2;
+      ctx.fillRect(0, -6, condLen, 12);
+      ctx.strokeRect(0, -6, condLen, 12);
+
+      // Moving Vapour & Condensing Droplets along inner tube when p >= 30
+      if (p >= 28) {
+        const reachFrac = Math.min(1, (p - 28) / 38);
+        for (let i = 0; i < 10; i++) {
+          const cycle = (t * 0.95 + i * 0.1) % 1;
+          if (cycle <= reachFrac) {
+            const posX = cycle * condLen;
+            if (posX < jStart + 25) {
+              // Still vapour steam puff
+              ctx.fillStyle = 'rgba(224, 242, 254, 0.8)';
+              ctx.beginPath();
+              ctx.arc(posX, Math.sin(cycle * 20) * 2, 3.5, 0, Math.PI * 2);
+              ctx.fill();
+            } else {
+              // Condensed liquid water droplet!
+              ctx.fillStyle = '#38bdf8';
+              ctx.beginPath();
+              ctx.arc(posX, 2, 3, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+        }
+      }
+      ctx.restore();
+
+      // Receiving Beaker under Condenser Outlet (condEndX, condEndY)
+      const beakerW = 66;
+      const beakerH = 78;
+      const beakerX = condEndX - beakerW / 2 + 8;
+      const beakerBottomY = bottomY - 4;
+      const beakerTopY = beakerBottomY - beakerH;
+
+      // Pure Distillate water accumulating in receiving beaker (when p >= 50)
+      const distFrac = Math.max(0, Math.min(0.75, ((p - 48) / 52) * 0.72));
+      if (distFrac > 0.01) {
+        const dH = distFrac * beakerH;
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.75)';
+        ctx.fillRect(beakerX + 3, beakerBottomY - dH, beakerW - 6, dH - 2);
+      }
+
+      // Falling droplet from condenser tip into receiving beaker
+      if (p >= 50 && p <= 99) {
+        const dropCycle = (t * 2.4) % 1;
+        const dropY = condEndY + dropCycle * (beakerBottomY - distFrac * beakerH - condEndY);
+        ctx.fillStyle = '#38bdf8';
+        ctx.beginPath();
+        ctx.arc(condEndX, dropY, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Receiving Beaker Glass Outline
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(beakerX, beakerTopY);
+      ctx.lineTo(beakerX, beakerBottomY);
+      ctx.lineTo(beakerX + beakerW, beakerBottomY);
+      ctx.lineTo(beakerX + beakerW, beakerTopY);
+      ctx.stroke();
+
+      if (state.showParticleLens) {
+        drawParticleLens(ctx, w - 122, h * 0.47, 92, 'distillation', p, t);
+      }
+    }
+
+    // ----------------------------------------------------------------------------
+    // PARTICLE-LEVEL MAGNIFIER LENS
+    // ----------------------------------------------------------------------------
+    function drawParticleLens(ctx, cx, cy, r, techId, p, t) {
+      ctx.save();
+
+      // Outer lens shadow & ring
+      ctx.fillStyle = '#020617';
+      ctx.beginPath();
+      ctx.arc(cx, cy, r + 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.clip();
+
+      // Interior lens background
+      const bgGrad = ctx.createRadialGradient(cx, cy, 10, cx, cy, r);
+      bgGrad.addColorStop(0, '#0f172a');
+      bgGrad.addColorStop(1, '#020617');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+
+      // Subtle grid lines inside lens
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.08)';
+      ctx.lineWidth = 1;
+      for (let gx = cx - r; gx <= cx + r; gx += 20) {
+        ctx.beginPath();
+        ctx.moveTo(gx, cy - r);
+        ctx.lineTo(gx, cy + r);
+        ctx.stroke();
+      }
+
+      // Render technique-specific particle motion
+      if (techId === 'evaporation') {
+        const liqLine = cy - r * 0.2 + (p / 100) * (r * 0.95);
+        ctx.fillStyle = 'rgba(14, 165, 233, 0.22)';
+        ctx.fillRect(cx - r, liqLine, r * 2, cy + r - liqLine);
+
+        particles.slice(0, 26).forEach((pt, idx) => {
+          if (pt.type === 'solvent') {
+            // Blue H2O molecules: escape upward as p increases
+            const escaped = idx * 3.8 < p;
+            const px = cx + (pt.seedX - 0.5) * r * 1.4 + Math.sin(t * 4 + pt.phase) * 5;
+            const py = escaped
+              ? cy - r * 0.8 + ((t * 45 * pt.speedFactor + idx * 17) % (r * 0.9)) * -1 + r * 0.5
+              : liqLine + 12 + pt.seedY * (cy + r - liqLine - 22);
+            ctx.fillStyle = '#38bdf8';
+            ctx.beginPath();
+            ctx.arc(px, py, 4.5, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            // Amber Na+/Cl- ions settle into bottom lattice as water leaves
+            const latticeWeight = Math.min(1, Math.max(0, (p - 45) / 45));
+            const targetX = cx - 45 + (idx % 7) * 15;
+            const targetY = cy + r - 18 - Math.floor(idx / 7) * 12;
+            const randX = cx + (pt.seedX - 0.5) * r * 1.2 + Math.cos(t * 3 + idx) * 4;
+            const randY = Math.max(liqLine + 8, cy + pt.seedY * (r * 0.75));
+            const px = randX * (1 - latticeWeight) + targetX * latticeWeight;
+            const py = randY * (1 - latticeWeight) + targetY * latticeWeight;
+            ctx.fillStyle = '#f8fafc';
+            ctx.beginPath();
+            ctx.arc(px, py, 5.2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        });
+      } else if (techId === 'crystallisation') {
+        ctx.fillStyle = 'rgba(6, 182, 212, 0.2)';
+        ctx.fillRect(cx - r, cy - r * 0.3, r * 2, r * 1.3);
+        const orderFrac = Math.max(0, Math.min(1, (p - 48) / 42));
+
+        particles.slice(0, 24).forEach((pt, idx) => {
+          const gridCol = idx % 5;
+          const gridRow = Math.floor(idx / 5);
+          const targetX = cx - 36 + gridCol * 18;
+          const targetY = cy + 12 + gridRow * 16;
+          const freeX = cx + (pt.seedX - 0.5) * r * 1.3 + Math.sin(t * 3 + idx) * 6;
+          const freeY = cy - 15 + (pt.seedY - 0.3) * r * 1.1 + Math.cos(t * 2.5 + idx) * 6;
+          const px = freeX * (1 - orderFrac) + targetX * orderFrac;
+          const py = freeY * (1 - orderFrac) + targetY * orderFrac;
+
+          ctx.fillStyle = idx % 2 === 0 ? '#67e8f9' : '#ecfeff';
+          ctx.fillRect(px - 4.5, py - 4.5, 9, 9);
+        });
+      } else if (techId === 'sublimation') {
+        // Cool funnel wall at top of lens, hot dish at bottom
+        ctx.fillStyle = 'rgba(168, 85, 247, 0.18)';
+        ctx.fillRect(cx - r, cy - r, r * 2, 28);
+
+        particles.slice(0, 24).forEach((pt, idx) => {
+          if (idx % 3 === 0) {
+            // Non-subliming NaCl stays at bottom
+            const px = cx - 48 + (idx % 8) * 14;
+            const py = cy + r - 16;
+            ctx.fillStyle = '#fbbf24';
+            ctx.beginPath();
+            ctx.arc(px, py, 5, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            // Subliming NH4Cl rises directly from bottom solid to top solid
+            const threshold = 20 + (idx / 24) * 55;
+            let py = cy + r - 24;
+            let px = cx + (pt.seedX - 0.5) * r * 1.2;
+            if (p > threshold && p < threshold + 18) {
+              const fly = (p - threshold) / 18;
+              py = (cy + r - 24) * (1 - fly) + (cy - r + 24) * fly;
+              px += Math.sin(t * 8 + idx) * 8;
+            } else if (p >= threshold + 18) {
+              py = cy - r + 22 + (idx % 2) * 9;
+              px = cx - 44 + (idx % 7) * 15;
+            }
+            ctx.fillStyle = '#f8fafc';
+            ctx.beginPath();
+            ctx.arc(px, py, 4.8, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        });
+      } else if (techId === 'distillation') {
+        // Left half = boiling flask, Right half = cool condenser inner tube
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - r);
+        ctx.lineTo(cx, cy + r);
+        ctx.stroke();
+
+        particles.slice(0, 24).forEach((pt, idx) => {
+          if (pt.type === 'solute') {
+            // Salt ions stay on the left (flask) side!
+            const px = cx - r * 0.48 + (pt.seedX - 0.5) * r * 0.65;
+            const py = cy + 15 + (pt.seedY - 0.5) * r * 0.7;
+            ctx.fillStyle = '#fbbf24';
+            ctx.beginPath();
+            ctx.arc(px, py, 4.8, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            // H2O molecules cross to the right (condenser/distillate) side as p increases
+            const crossed = idx * 3.6 < p;
+            const px = crossed
+              ? cx + r * 0.42 + (pt.seedX - 0.5) * r * 0.6
+              : cx - r * 0.45 + (pt.seedX - 0.5) * r * 0.6;
+            const py = cy + Math.sin(t * 4 + idx) * (crossed ? 14 : 38);
+            ctx.fillStyle = '#38bdf8';
+            ctx.beginPath();
+            ctx.arc(px, py, 4.5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        });
+      }
+
+      ctx.restore();
+
+      // Lens Rim & Label
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = '#0f172a';
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(cx - 64, cy + r - 14, 128, 22, 999);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#7dd3fc';
+      ctx.font = '700 10px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('🔍 PARTICLE ZOOM', cx, cy + r + 1);
+    }
+
+    // Main Render Loop
+    function renderFrame(now) {
+      const dt = Math.min(0.1, (now - state.lastFrameTime) / 1000);
+      state.lastFrameTime = now;
+      state.tick += dt;
+
+      if (state.isPlaying && state.activeTab === 'lab') {
+        state.progress += dt * 11 * state.speed;
+        if (state.progress >= 100) {
+          state.progress = 100;
+          setPlaying(false);
+        }
+        scrubberInput.value = state.progress;
+        updateScrubberStateUI();
+      }
+
+      if (state.activeTab === 'lab') {
+        const rect = canvas.parentElement.getBoundingClientRect();
+        const w = rect.width;
+        const h = rect.height;
+        ctx.clearRect(0, 0, w, h);
+
+        if (state.currentTech === 'evaporation') {
+          drawEvaporationScene(ctx, w, h, state.progress, state.tick);
+        } else if (state.currentTech === 'crystallisation') {
+          drawCrystallisationScene(ctx, w, h, state.progress, state.tick);
+        } else if (state.currentTech === 'sublimation') {
+          drawSublimationScene(ctx, w, h, state.progress, state.tick);
+        } else if (state.currentTech === 'distillation') {
+          drawDistillationScene(ctx, w, h, state.progress, state.tick);
+        }
+      }
+
+      requestAnimationFrame(renderFrame);
+    }
+
+    // ============================================================================
+    // 7. INTERACTIVE HANDLERS FOR MIXTURE SOLVER, PROFESSIONS & QUIZ
+    // ============================================================================
+    function initMixtureSolver() {
+      document.querySelectorAll('.mix-action-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const step = Number(btn.getAttribute('data-step'));
+          const choice = btn.getAttribute('data-choice');
+
+          if (step === 1) {
+            const fb = document.getElementById('mixStep1Feedback');
+            fb.classList.remove('hidden');
+            if (choice === 'filter') {
+              fb.className = 'text-xs text-emerald-300 pt-1 font-medium';
+              fb.textContent = '✓ Correct! Filtration traps insoluble sand as residue on the filter paper while saltwater passes through as the clear filtrate.';
+              document.getElementById('mixStep1Status').textContent = 'Completed ✓';
+              document.getElementById('mixStep1Status').className = 'text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold';
+              document.getElementById('invSandState').textContent = '✓ Separated on Filter Paper';
+              document.getElementById('invSandBox').classList.add('border-emerald-500/60');
+
+              // Unlock Step 2
+              const s2 = document.getElementById('mixStep2Card');
+              s2.classList.remove('opacity-60');
+              s2.classList.replace('border-slate-800', 'border-emerald-500/60');
+              document.getElementById('mixStep2Status').textContent = 'Ready';
+              s2.querySelectorAll('button').forEach(b => (b.disabled = false));
+            } else {
+              fb.className = 'text-xs text-amber-300 pt-1 font-medium';
+              fb.textContent = '⚠️ Wait! If you boil right now, the salt and sand will remain mixed together at the bottom. Filter out the insoluble sand first!';
+            }
+          } else if (step === 2) {
+            const fb = document.getElementById('mixStep2Feedback');
+            fb.classList.remove('hidden');
+            if (choice === 'distill') {
+              fb.className = 'text-xs text-emerald-300 pt-1 font-medium';
+              fb.textContent = '✓ Spot on! Simple distillation condenses the water vapour in the Liebig condenser so you recover pure liquid water (distillate).';
+              document.getElementById('mixStep2Status').textContent = 'Completed ✓';
+              document.getElementById('mixStep2Status').className = 'text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold';
+              document.getElementById('invWaterState').textContent = '✓ Collected as Pure Distillate';
+              document.getElementById('invWaterBox').classList.add('border-emerald-500/60');
+
+              // Unlock Step 3
+              const s3 = document.getElementById('mixStep3Card');
+              s3.classList.remove('opacity-60');
+              s3.classList.replace('border-slate-800', 'border-cyan-500/60');
+              document.getElementById('mixStep3Status').textContent = 'Ready';
+              s3.querySelectorAll('button').forEach(b => (b.disabled = false));
+            } else {
+              fb.className = 'text-xs text-amber-300 pt-1 font-medium';
+              fb.textContent = '⚠️ Open evaporation lets all the water escape into the air! Since Activity 11.1 asks to separate all three (water, salt, and sand), use distillation to capture the water.';
+            }
+          } else if (step === 3) {
+            const fb = document.getElementById('mixStep3Feedback');
+            fb.classList.remove('hidden');
+            fb.className = 'text-xs text-emerald-300 pt-1 font-medium';
+            fb.textContent = '🎉 Complete! All three substances—Sand (via Filtration), Pure Water (via Distillation), and Pure Salt Crystals (via Evaporation/Crystallisation)—are now separated!';
+            document.getElementById('mixStep3Status').textContent = 'Completed ✓';
+            document.getElementById('mixStep3Status').className = 'text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold';
+            document.getElementById('invSaltState').textContent = '✓ Pure Dry Salt Crystals';
+            document.getElementById('invSaltBox').classList.add('border-emerald-500/60');
+          }
+        });
+      });
+
+      document.getElementById('resetMixturePlanBtn').addEventListener('click', () => {
+        ['mixStep1Feedback', 'mixStep2Feedback', 'mixStep3Feedback'].forEach(id => {
+          document.getElementById(id).classList.add('hidden');
+        });
+        document.getElementById('mixStep1Status').textContent = 'Ready';
+        document.getElementById('mixStep2Status').textContent = 'Locked';
+        document.getElementById('mixStep3Status').textContent = 'Locked';
+
+        const s2 = document.getElementById('mixStep2Card');
+        const s3 = document.getElementById('mixStep3Card');
+        s2.classList.add('opacity-60');
+        s3.classList.add('opacity-60');
+        s2.querySelectorAll('button').forEach(b => (b.disabled = true));
+        s3.querySelectorAll('button').forEach(b => (b.disabled = true));
+
+        document.getElementById('invSandState').textContent = 'Mixed in beaker';
+        document.getElementById('invWaterState').textContent = 'Mixed with salt';
+        document.getElementById('invSaltState').textContent = 'Dissolved solute';
+        ['invSandBox', 'invWaterBox', 'invSaltBox'].forEach(id => {
+          document.getElementById(id).classList.remove('border-emerald-500/60');
+        });
+      });
+
+      // Question 8 Matcher Buttons
+      const explanations = {
+        a: '✓ Sublimation! Camphor sublimes directly from solid to gas on heating, while common salt (NaCl) does not sublime (Page 119).',
+        b: '✓ Simple Distillation! Water has a much lower boiling point (100 °C) than ink dye; water evaporates and condenses as pure distillate (Page 120).',
+        c: '✓ Magnetic Separation (or Filtration)! Steel pieces are magnetic and insoluble in liquid engine oil.'
+      };
+
+      document.querySelectorAll('.q8-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const key = btn.getAttribute('data-q8');
+          const isCorrect = btn.getAttribute('data-correct') === 'true';
+          const badge = document.getElementById(`q8${key}Badge`);
+          const exp = document.getElementById(`q8${key}Explain`);
+          exp.classList.remove('hidden');
+          if (isCorrect) {
+            badge.textContent = '✓ Correct';
+            badge.className = 'text-[11px] font-mono text-emerald-400 font-bold';
+            exp.className = 'text-xs text-emerald-300 pt-1';
+            exp.textContent = explanations[key];
+          } else {
+            badge.textContent = 'Try again';
+            badge.className = 'text-[11px] font-mono text-amber-400 font-bold';
+            exp.className = 'text-xs text-amber-300 pt-1';
+            exp.textContent = 'Think about the physical states and properties of the two substances in this mixture!';
+          }
+        });
+      });
+    }
+
+    function initProfessionsGrid() {
+      const grid = document.getElementById('profGrid');
+      grid.innerHTML = '';
+      PROFESSIONS.forEach((p, idx) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = idx === 0
+          ? 'prof-btn p-2.5 rounded-xl border text-center transition-all bg-sky-500/20 border-sky-500 text-white'
+          : 'prof-btn p-2.5 rounded-xl border text-center transition-all bg-slate-900/80 border-slate-800 hover:border-slate-700 text-slate-300';
+        btn.innerHTML = `<div class="text-xl mb-1">${p.emoji}</div><div class="text-[11px] font-bold leading-tight">${p.name}</div>`;
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.prof-btn').forEach((b, i) => {
+            b.className = i === idx
+              ? 'prof-btn p-2.5 rounded-xl border text-center transition-all bg-sky-500/20 border-sky-500 text-white'
+              : 'prof-btn p-2.5 rounded-xl border text-center transition-all bg-slate-900/80 border-slate-800 hover:border-slate-700 text-slate-300';
+          });
+          document.getElementById('profDetailEmoji').textContent = p.emoji;
+          document.getElementById('profDetailName').textContent = p.name;
+          document.getElementById('profDetailTechTag').textContent = p.tech;
+          document.getElementById('profDetailDesc').textContent = p.desc;
+        });
+        grid.appendChild(btn);
+      });
+    }
+
+    function renderQuiz() {
+      const container = document.getElementById('quizContainer');
+      container.innerHTML = '';
+      let correctCount = 0;
+
+      QUIZ_QUESTIONS.forEach((q) => {
+        const chosen = state.quizAnswers[q.id];
+        if (chosen === q.correct) correctCount++;
+
+        const card = document.createElement('div');
+        card.className = 'p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3 flex flex-col justify-between';
+
+        const optionsHtml = q.options.map((opt, oIdx) => {
+          let btnStyle = 'bg-slate-950/80 hover:bg-slate-800 border-slate-800 text-slate-200';
+          if (chosen !== undefined) {
+            if (oIdx === q.correct) {
+              btnStyle = 'bg-emerald-500/20 border-emerald-500/60 text-emerald-200 font-semibold';
+            } else if (oIdx === chosen) {
+              btnStyle = 'bg-rose-500/20 border-rose-500/60 text-rose-200';
+            }
+          }
+          return `<button type="button" data-qid="${q.id}" data-oidx="${oIdx}" class="quiz-opt-btn w-full text-left px-3 py-2 rounded-xl border text-xs transition-all ${btnStyle}">${opt}</button>`;
+        }).join('');
+
+        const feedbackHtml = chosen !== undefined
+          ? `<div class="text-xs ${chosen === q.correct ? 'text-emerald-300' : 'text-amber-300'} pt-2 border-t border-slate-800/80 leading-relaxed">
+               ${chosen === q.correct ? '✓ Correct! ' : '✗ Not quite. '}${q.explanation}
+             </div>`
+          : '';
+
+        card.innerHTML = `
+          <div class="space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-slate-800 text-sky-300">${q.page}</span>
+            </div>
+            <h4 class="text-xs sm:text-sm font-bold text-white leading-snug">${q.question}</h4>
+            <div class="space-y-1.5 pt-1">${optionsHtml}</div>
+          </div>
+          ${feedbackHtml}
+        `;
+        container.appendChild(card);
+      });
+
+      document.getElementById('quizScoreText').textContent = `${correctCount} / ${QUIZ_QUESTIONS.length}`;
+
+      container.querySelectorAll('.quiz-opt-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const qid = btn.getAttribute('data-qid');
+          const oidx = Number(btn.getAttribute('data-oidx'));
+          state.quizAnswers[qid] = oidx;
+          renderQuiz();
+        });
+      });
+    }
+
+    // ============================================================================
+    // 8. WIRE UP ALL EVENT LISTENERS ON LOAD
+    // ============================================================================
+    window.addEventListener('DOMContentLoaded', () => {
+      // Main Navigation Tabs
+      document.querySelectorAll('.nav-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          setActiveTab(btn.getAttribute('data-tab'));
+        });
+      });
+
+      // Technique Buttons
+      document.querySelectorAll('.tech-select-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          selectTechnique(btn.getAttribute('data-tech'), false);
+        });
+      });
+
+      // Summary Comparison Table Rows
+      document.querySelectorAll('.comparison-row').forEach(row => {
+        row.addEventListener('click', () => {
+          selectTechnique(row.getAttribute('data-jump-tech'), false);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+      });
+
+      // Scrubber Range Input
+      scrubberInput.addEventListener('input', (e) => {
+        state.progress = parseFloat(e.target.value);
+        updateScrubberStateUI();
+      });
+
+      // Play / Pause / Step / Reset Controls
+      playPauseBtn.addEventListener('click', () => {
+        setPlaying(!state.isPlaying);
+      });
+
+      document.getElementById('stepBackBtn').addEventListener('click', () => {
+        setPlaying(false);
+        state.progress = Math.max(0, state.progress - 10);
+        scrubberInput.value = state.progress;
+        updateScrubberStateUI();
+      });
+
+      document.getElementById('stepFwdBtn').addEventListener('click', () => {
+        setPlaying(false);
+        state.progress = Math.min(100, state.progress + 10);
+        scrubberInput.value = state.progress;
+        updateScrubberStateUI();
+      });
+
+      document.getElementById('resetScrubBtn').addEventListener('click', () => {
+        setPlaying(false);
+        state.progress = 0;
+        scrubberInput.value = 0;
+        updateScrubberStateUI();
+      });
+
+      // Playback Speed Buttons
+      document.querySelectorAll('.speed-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.speed = parseFloat(btn.getAttribute('data-speed'));
+          document.querySelectorAll('.speed-btn').forEach(b => {
+            const isSel = parseFloat(b.getAttribute('data-speed')) === state.speed;
+            b.className = isSel
+              ? 'speed-btn px-2 py-0.5 rounded text-xs font-mono bg-sky-500/20 text-sky-300 font-bold'
+              : 'speed-btn px-2 py-0.5 rounded text-xs font-mono text-slate-400 hover:text-white';
+          });
+        });
+      });
+
+      // Particle Lens & Label Toggles
+      document.getElementById('toggleParticleBtn').addEventListener('click', () => {
+        state.showParticleLens = !state.showParticleLens;
+        document.getElementById('toggleParticleText').textContent = `Particle Lens: ${state.showParticleLens ? 'ON' : 'OFF'}`;
+      });
+
+      document.getElementById('toggleLabelsBtn').addEventListener('click', () => {
+        state.showLabels = !state.showLabels;
+        document.getElementById('toggleLabelsText').textContent = `Labels: ${state.showLabels ? 'ON' : 'OFF'}`;
+        renderHotspotOverlay();
+      });
+
+      // Reveal Textbook Quick Question
+      document.getElementById('revealQuickQBtn').addEventListener('click', () => {
+        document.getElementById('quickQAnswer').classList.toggle('hidden');
+      });
+
+      // Critical Thinking Toggles
+      document.getElementById('toggleCrit1Btn').addEventListener('click', () => {
+        document.getElementById('crit1Answer').classList.toggle('hidden');
+      });
+      document.getElementById('toggleCrit2Btn').addEventListener('click', () => {
+        document.getElementById('crit2Answer').classList.toggle('hidden');
+      });
+
+      // Reset Quiz
+      document.getElementById('resetQuizBtn').addEventListener('click', () => {
+        state.quizAnswers = {};
+        renderQuiz();
+      });
+
+      // Keyboard Shortcuts for effortless scrubbing
+      window.addEventListener('keydown', (e) => {
+        if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName) && document.activeElement !== scrubberInput) return;
+        if (e.code === 'Space' && state.activeTab === 'lab') {
+          e.preventDefault();
+          setPlaying(!state.isPlaying);
+        } else if (e.code === 'ArrowRight' && state.activeTab === 'lab') {
+          setPlaying(false);
+          state.progress = Math.min(100, state.progress + 4);
+          scrubberInput.value = state.progress;
+          updateScrubberStateUI();
+        } else if (e.code === 'ArrowLeft' && state.activeTab === 'lab') {
+          setPlaying(false);
+          state.progress = Math.max(0, state.progress - 4);
+          scrubberInput.value = state.progress;
+          updateScrubberStateUI();
+        }
+      });
+
+      window.addEventListener('resize', resizeCanvas);
+
+      // Initialize all views
+      resizeCanvas();
+      selectTechnique('evaporation', true);
+      initMixtureSolver();
+      initProfessionsGrid();
+      renderQuiz();
+      requestAnimationFrame(renderFrame);
+    });
+  </script>
+</body>
+</html>
